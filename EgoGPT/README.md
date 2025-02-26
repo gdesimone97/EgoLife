@@ -5,8 +5,7 @@
 [![model](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging_Face-Model-blue.svg)](https://huggingface.co/lmms-lab)
 [![data](https://img.shields.io/badge/EgoGPT-Data-orange)](https://huggingface.co/lmms-lab) 
 
-
-EgoGPT is a personalized AI model built upon GPT-4o. It supports adaptive and context-aware interactions, generating responses tailored to individual user preferences.
+EgoGPT is a vision-audio-language model trained on egocentric datasets, achieving state-of-the-art performance on egocentric video understanding. 
 
 <div align="center"><img src="images/egogpt_model.png" width="75%"/></div>
 
