@@ -82,7 +82,7 @@ python inference.py --pretrained_path checkpoints/EgoGPT-7b-EgoIT-EgoLife --vide
 
 ## 📃 Main Results
 
-### Results on Personalized Interaction
+### Performance of EgoGPT
 
 <p align="center" width="100%">
 <img src="assets/main_results.png" alt="results_personalized_interaction.png" width=80%>
