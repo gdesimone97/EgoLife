@@ -68,9 +68,6 @@ bash scripts/train_egogpt.sh
 python inference.py --pretrained_path checkpoints/EgoGPT-7b-EgoIT-EgoLife --video_path data/train/A1_JAKE/DAY1/DAY1_A1_JAKE_11223000.mp4 --audio_path audio/DAY1_A1_JAKE_11223000.mp3 --query "Please describe the video in detail."
 ```
 
-
-
-
 ## Demo
 
 
@@ -88,7 +85,7 @@ python inference.py --pretrained_path checkpoints/EgoGPT-7b-EgoIT-EgoLife --vide
 ### Results on Personalized Interaction
 
 <p align="center" width="100%">
-<img src="images/results_personalized_interaction.png" alt="results_personalized_interaction.png" width=80%>
+<img src="assets/main_results.png" alt="results_personalized_interaction.png" width=80%>
 </p>
 
 ## LICENSE
