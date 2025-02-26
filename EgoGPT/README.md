@@ -3,7 +3,6 @@
 [![arXiv](https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/XXXX.XXXXX)
 [![code](https://img.shields.io/badge/Github-Code-keygen.svg?logo=github)](https://github.com/egolife-ntu/EgoLife)
 [![model](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging_Face-Model-blue.svg)](https://huggingface.co/lmms-lab)
-[![ModelScope](https://img.shields.io/badge/ModelScope-Model-blue.svg)](https://huggingface.co/lmms-lab)
 [![data](https://img.shields.io/badge/EgoGPT-Data-orange)](https://huggingface.co/lmms-lab) 
 
 
