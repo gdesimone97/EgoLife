@@ -51,7 +51,9 @@ def load_video(video_path=None, audio_path=None, max_frames_num=16, fps=1):
     avg_fps = round(vr.get_avg_fps() / fps)
     frame_idx = [i for i in range(0, total_frame_num, avg_fps)]
     if max_frames_num > 0 and len(frame_idx) > max_frames_num:
-        uniform_sampled_frames = np.linspace(0, total_frame_num - 1, max_frames_num, dtype=int)
+        uniform_sampled_frames = np.linspace(
+            0, total_frame_num - 1, max_frames_num, dtype=int
+        )
         frame_idx = uniform_sampled_frames.tolist()
     video = vr.get_batch(frame_idx).asnumpy()
     return video, speech, speech_lengths
@@ -72,7 +74,9 @@ def main():
     device = "cuda"
     device_map = "cuda"
 
-    tokenizer, model, max_length = load_pretrained_model(pretrained, device_map=device_map)
+    tokenizer, model, max_length = load_pretrained_model(
+        pretrained, device_map=device_map
+    )
     model.eval()
 
     video_path = "data/train/A1_JAKE/DAY1/DAY1_A1_JAKE_11223000.mp4"
@@ -85,7 +89,9 @@ def main():
     conv.append_message(conv.roles[1], None)
     prompt_question = conv.get_prompt()
 
-    video, speech, speech_lengths = load_video(video_path=video_path, audio_path=audio_path)
+    video, speech, speech_lengths = load_video(
+        video_path=video_path, audio_path=audio_path
+    )
     speech = torch.stack([speech]).to(device).half()
     processor = model.get_vision_tower().image_processor
     processed_video = processor.preprocess(video, return_tensors="pt")["pixel_values"]

@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
-from transformers import CLIPImageProcessor, CLIPVisionConfig, CLIPVisionModel
-
 from egogpt.utils import rank0_print
+from transformers import CLIPImageProcessor, CLIPVisionConfig, CLIPVisionModel
 
 try:
     from s2wrapper import forward as multiscale_forward

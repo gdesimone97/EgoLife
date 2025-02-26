@@ -19,7 +19,6 @@ from abc import ABC, abstractmethod
 
 import torch
 import torch.nn as nn
-
 from egogpt.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, SPEECH_TOKEN_INDEX
 from egogpt.mm_utils import get_anyres_image_grid_shape
 from egogpt.utils import lengths_to_padding_mask, rank0_print, rank_print
@@ -29,6 +28,7 @@ from .multimodal_projector.builder import build_vision_projector
 from .multimodal_resampler.builder import build_vision_resampler
 from .speech_encoder.builder import build_speech_encoder
 from .speech_projector.builder import build_speech_projector
+
 
 class EgoGPTMetaModel:
     def __init__(self, config):

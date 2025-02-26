@@ -37,12 +37,6 @@ import tokenizers
 import torch
 import transformers
 import whisper
-from packaging import version
-from PIL import Image
-from safetensors.torch import load_file as safetensor_load_file
-from scipy.signal import resample
-from torch.utils.data import Dataset
-
 from egogpt import conversation as conversation_lib
 from egogpt.constants import (
     DEFAULT_IMAGE_TOKEN,
@@ -59,6 +53,11 @@ from egogpt.mm_utils import (
 from egogpt.model import *
 from egogpt.train.llava_trainer import LLaVATrainer
 from egogpt.utils import process_video_with_decord, process_video_with_decord_byframe
+from packaging import version
+from PIL import Image
+from safetensors.torch import load_file as safetensor_load_file
+from scipy.signal import resample
+from torch.utils.data import Dataset
 
 local_rank = None
 IS_TOKENIZER_GREATER_THAN_0_14 = version.parse(tokenizers.__version__) >= version.parse(
@@ -1359,7 +1358,6 @@ def train():
         model_args=model_args, fsdp=training_args.fsdp
     )
 
-
     if model_args.vision_tower is not None:
         model.get_model().initialize_vision_modules(
             model_args=model_args, fsdp=training_args.fsdp
@@ -1372,9 +1370,9 @@ def train():
         )
         speech_encoder = model.get_speech_encoder()
         speech_encoder.to(
-        dtype=torch.bfloat16 if training_args.bf16 else torch.float16,
-        device=training_args.device,
-    )
+            dtype=torch.bfloat16 if training_args.bf16 else torch.float16,
+            device=training_args.device,
+        )
 
         data_args.image_processor = vision_tower.image_processor
         model.config.image_aspect_ratio = data_args.image_aspect_ratio

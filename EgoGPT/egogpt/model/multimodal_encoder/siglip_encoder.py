@@ -9,6 +9,7 @@ from typing import Dict, Optional, Tuple, Union
 
 import torch
 import torch.utils.checkpoint
+from egogpt.utils import rank0_print
 from PIL import Image
 from torch import nn
 from transformers import PretrainedConfig
@@ -29,8 +30,6 @@ from transformers.image_utils import (
 from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling
 from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import ModelOutput
-
-from egogpt.utils import rank0_print
 
 
 class SigLipImageProcessor:

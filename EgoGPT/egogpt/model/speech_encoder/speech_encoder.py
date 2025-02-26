@@ -6,7 +6,6 @@ import deepspeed
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from egogpt.utils import rank0_print
 
 from .model import ModelDimensions, Whisper
