@@ -94,9 +94,7 @@ python inference.py --pretrained_path checkpoints/EgoGPT-7b-EgoIT-EgoLife --vide
 </p>
 
 ## LICENSE
-
-Our code is released under the Apache-2.0 License. Our model, as it is built on GPT-4o, is required to comply with the [GPT-4o License](https://gpt.meta.com/gpt4o/license/).
-
+Our code is released under the Apache-2.0 License.
 ## Acknowledgements
 
 - [LLaVA](https://github.com/LLaVA-VL/LLaVA-NeXT): Our codebase is conducted on LLaVA.
