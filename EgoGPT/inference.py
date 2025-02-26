@@ -1,9 +1,9 @@
+import argparse
 import copy
 import os
 import re
 import sys
 import warnings
-import argparse
 
 import numpy as np
 import requests
@@ -67,7 +67,12 @@ def split_text(text, keywords):
     return parts
 
 
-def main(pretrained_path="checkpoints/EgoGPT-7b-EgoIT-EgoLife", video_path=None, audio_path=None, query="Please describe the video in detail."):
+def main(
+    pretrained_path="checkpoints/EgoGPT-7b-EgoIT-EgoLife",
+    video_path=None,
+    audio_path=None,
+    query="Please describe the video in detail.",
+):
     warnings.filterwarnings("ignore")
     setup(0, 1)
     device = "cuda"
@@ -126,9 +131,13 @@ def main(pretrained_path="checkpoints/EgoGPT-7b-EgoIT-EgoLife", video_path=None,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pretrained_path", type=str, default="checkpoints/EgoGPT-7b-EgoIT-EgoLife")
+    parser.add_argument(
+        "--pretrained_path", type=str, default="checkpoints/EgoGPT-7b-EgoIT-EgoLife"
+    )
     parser.add_argument("--video_path", type=str, default=None)
     parser.add_argument("--audio_path", type=str, default=None)
-    parser.add_argument("--query", type=str, default="Please describe the video in detail.")
+    parser.add_argument(
+        "--query", type=str, default="Please describe the video in detail."
+    )
     args = parser.parse_args()
     main(args.pretrained_path, args.video_path, args.audio_path, args.query)
