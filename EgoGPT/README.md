@@ -4,7 +4,7 @@
 [![code](https://img.shields.io/badge/Github-Code-keygen.svg?logo=github)](https://github.com/egolife-ntu/EgoLife)
 [![model](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging_Face-Model-blue.svg)](https://huggingface.co/lmms-lab)
 [![ModelScope](https://img.shields.io/badge/ModelScope-Model-blue.svg)](https://huggingface.co/lmms-lab)
-**Training Data:** [![data](https://img.shields.io/badge/EgoGPT-Data-orange)](https://huggingface.co/lmms-lab) 
+[![data](https://img.shields.io/badge/EgoGPT-Data-orange)](https://huggingface.co/lmms-lab) 
 
 
 EgoGPT is a personalized AI model built upon GPT-4o. It supports adaptive and context-aware interactions, generating responses tailored to individual user preferences.
