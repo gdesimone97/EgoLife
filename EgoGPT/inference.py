@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import warnings
+import argparse
 
 import numpy as np
 import requests
@@ -66,24 +67,19 @@ def split_text(text, keywords):
     return parts
 
 
-def main():
+def main(pretrained_path="checkpoints/EgoGPT-7b-EgoIT-EgoLife", video_path=None, audio_path=None, query="Please describe the video in detail."):
     warnings.filterwarnings("ignore")
     setup(0, 1)
-
-    pretrained = "checkpoints/EgoGPT-llavaov-7b-EgoIT-100k"
     device = "cuda"
     device_map = "cuda"
 
     tokenizer, model, max_length = load_pretrained_model(
-        pretrained, device_map=device_map
+        pretrained_path, device_map=device_map
     )
     model.eval()
 
-    video_path = "data/train/A1_JAKE/DAY1/DAY1_A1_JAKE_11223000.mp4"
-    audio_path = "audio/DAY1_A1_JAKE_11223000.mp3"
-
     conv_template = "qwen_1_5"
-    question = "<image>\n<speech>\n\nPlease describe the video in detail."
+    question = f"<image>\n<speech>\n\n{query}"
     conv = copy.deepcopy(conv_templates[conv_template])
     conv.append_message(conv.roles[0], question)
     conv.append_message(conv.roles[1], None)
@@ -129,4 +125,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pretrained_path", type=str, default="checkpoints/EgoGPT-7b-EgoIT-EgoLife")
+    parser.add_argument("--video_path", type=str, default=None)
+    parser.add_argument("--audio_path", type=str, default=None)
+    parser.add_argument("--query", type=str, default="Please describe the video in detail.")
+    args = parser.parse_args()
+    main(args.pretrained_path, args.video_path, args.audio_path, args.query)
