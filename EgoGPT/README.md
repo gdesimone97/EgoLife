@@ -49,6 +49,8 @@ pip install flash-attn --no-build-isolation
 
 ## Quick Start
 
+### Setup
+
 1. Download EgoGPT-7b-EgoIT-EgoLife from 🤗[Huggingface](https://huggingface.co/lmms-lab/EgoGPT-7b-EgoIT-EgoLife).
 
 ```shell
