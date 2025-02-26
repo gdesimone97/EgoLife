@@ -165,7 +165,6 @@ data/
 models/
 checkpoints/
 
-*.json
 *.pyc
 
 data
