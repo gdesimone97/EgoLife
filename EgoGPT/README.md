@@ -22,37 +22,54 @@ EgoGPT is a personalized AI model built upon GPT-4o. It supports adaptive and co
 - [x] Training Data (Video, Audio, Cross-Modality)
 
 
-## Install
+## Installation
 
 1. Clone this repository.
 
 ```shell
-git clone https://github.com/egolife-ntu/EgoGPT
-cd EgoGPT
+git clone https://github.com/egolife-ntu/EgoLife
+cd EgoLife/EgoGPT
+```
+
+2. Install the dependencies.
+
+```shell
+conda create -n egogpt python=3.10
+conda activate egogpt
+pip install --upgrade pip
+pip install -e .
+
+3. Install the dependencies for training and inference.
+
+```shell
+pip install -e ".[train]"
+pip install flash-attn --no-build-isolation
 ```
 
 
 ## Quick Start
 
-1. Download the `EgoGPT-Model` from 🤗[Huggingface](https://huggingface.co/egolife-ntu/EgoGPT).
-
-```python
-from huggingface_hub import snapshot_download
-
-# Define the model repository and the target directory
-model_name = "egolife-ntu/EgoGPT-Model"
-local_dir = "./models"
-
-# Download the model to the local directory
-snapshot_download(repo_id=model_name, local_dir=local_dir)
-```
-
-2. Download additional resources if needed.
+1. Download EgoGPT-7b-EgoIT-EgoLife from 🤗[Huggingface](https://huggingface.co/lmms-lab/EgoGPT-7b-EgoIT-EgoLife).
 
 ```shell
-# Example command to download additional resources
-wget https://example.com/resource -P resources/
+wget https://huggingface.co/lmms-lab/EgoGPT-7b-EgoIT-EgoLife/resolve/main/EgoGPT-7b-EgoIT-EgoLife.tar.gz
+tar -xzvf EgoGPT-7b-EgoIT-EgoLife.tar.gz
 ```
+
+### Training
+
+```shell
+bash scripts/train_egogpt.sh
+```
+
+### Inference
+
+```shell
+python inference.py --pretrained_path checkpoints/EgoGPT-7b-EgoIT-EgoLife --video_path data/train/A1_JAKE/DAY1/DAY1_A1_JAKE_11223000.mp4 --audio_path audio/DAY1_A1_JAKE_11223000.mp3 --query "Please describe the video in detail."
+```
+
+
+
 
 ## Demo
 
