@@ -57,7 +57,7 @@ EgoLife/
 │── EgoRAG/                # Retrieval-augmented generation (RAG) module
 │── README.md              # Main documentation for the overall project
 ```
-Please dive in to the project of [EgoGPT](./EgoGPT/README.md) and [EgoRAG](./EgoRAG/README.md) for more details.
+Please dive in to the project of [EgoGPT](./EgoGPT/) and [EgoRAG](./EgoRAG/) for more details.
 
 ## 📢 Citation
 
