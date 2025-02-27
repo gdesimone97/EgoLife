@@ -32,7 +32,6 @@
 
 
 ## What is in this repo?
----
 ### 🧠 EgoGPT: Clip-Level Multimodal Understanding
 EgoGPT is an **omni-modal vision-language model** fine-tuned on egocentric datasets. It performs **continuous video captioning**, extracting key events, actions, and context from first-person video and audio streams. 
 
@@ -47,7 +46,6 @@ EgoRAG is a **retrieval-augmented generation (RAG) module** that enables long-te
 - **Hierarchical memory bank** (hourly, daily summaries).
 - **Time-stamped retrieval** for context-aware Q&A.
 
----
 
 ## 📂 Code Structure
 ```bash
@@ -74,3 +72,7 @@ If you use EgoLife in your research, please cite our work:
 
 ## 📝 License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=EvolvingLMMs-Lab/EgoLife&type=Date)](https://star-history.com/#EvolvingLMMs-Lab/EgoLife&Date)
