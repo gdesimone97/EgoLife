@@ -1,24 +1,40 @@
 # 🤖🧠 EgoGPT:
 
-[![arXiv](https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/XXXX.XXXXX)
-[![code](https://img.shields.io/badge/Github-Code-keygen.svg?logo=github)](https://github.com/egolife-ntu/EgoLife)
-[![model](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging_Face-Model-blue.svg)](https://huggingface.co/lmms-lab)
-[![data](https://img.shields.io/badge/EgoGPT-Data-orange)](https://huggingface.co/lmms-lab) 
+**Project Page:** [![EgoLife](https://img.shields.io/badge/EgoLife-project_page-white)](https://egolife-ai.github.io/) 
 
-EgoGPT is a vision-audio-language model trained on egocentric datasets, achieving state-of-the-art performance on egocentric video understanding. 
+**Blog:** [![demo](https://img.shields.io/badge/EgoGPT-Blog-lightblue)](https://egolife-ai.github.io/blog/) 
 
-<div align="center"><img src="images/egogpt_model.png" width="75%"/></div>
+**Demo:** [![demo](https://img.shields.io/badge/EgoGPT-Demo-teal)](https://egolife.lmms-lab.com/) 
+
+**Weights in Huggingface:** [![hf_checkpoint](https://img.shields.io/badge/🤗-EgoGPT_7b-yellow)](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342)
+
+**arXiv Paper:** [![arXiv](https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b.svg?logo=arXiv)](https://arxiv.org/)
+
+**Training Data:** [![data](https://img.shields.io/badge/EgoGPT-Data-purple)](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342) 
+
 
 ## 📢 News
 
-- 🚀[2025/2/27] EgoGPT training and inference code is now available on Github!
+- 🚀[2025/2/28] EgoGPT codebase is released!
 
-## 🚀Coming Soon
+## Introduction
 
-- [ ] Evaluation code on omni-modal benchmarks
-- [x] Gradio Demo
-- [x] Training Data (Video, Audio, Cross-Modality)
+EgoGPT is an omni-modal model trained on
+egocentric datasets, achieving state-of-the-art performance
+on egocentric video understanding. 
 
+
+### Architecture
+<div align="center"><img src="assets/method.png" width="100%"/></div>
+The system comprises (a) a Captioning Stage powered by EgoGPT for dense visual-audio
+understanding of egocentric clips, and (b) a Question Answering Stage utilizing EgoRAG for memory retrieval and response generation. The
+example demonstrates temporal reasoning across multiple days, with keyword extraction, evidence retrieval, and context-aware answer
+generation for a breakfast-related query
+
+### Performance
+
+<div align="center"><img src="assets/main_results.png" alt="results_personalized_interaction.png" width=100%></div>
+EgoGPT achieves state-of-the-art performance among existing egocentric benchmarks.
 
 ## Installation
 
@@ -47,17 +63,11 @@ pip install flash-attn --no-build-isolation
 
 ## Quick Start
 
-### Setup
+### Download & Setup
 
-1. Download EgoGPT-7b-EgoIT-EgoLife from 🤗[Huggingface](https://huggingface.co/lmms-lab/EgoGPT-7b-EgoIT-EgoLife).
+1. Download EgoGPT-7b from 🤗[EgoGPT](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342) and audio encoder from [Audio Encoder](https://huggingface.co/EgoGPT/speech_encoder).
 
-```shell
-wget https://huggingface.co/lmms-lab/EgoGPT-7b-EgoIT-EgoLife/resolve/main/EgoGPT-7b-EgoIT-EgoLife.tar.gz
-tar -xzvf EgoGPT-7b-EgoIT-EgoLife.tar.gz
-```
-
-2. Download the EgoIT dataset from 🤗[Huggingface](https://huggingface.co/datasets/EgoGPT/EgoIT_Video). The dataset will be moved to the `./data/` directory.
-
+2. Download EgoIT dataset from 🤗[Huggingface](https://huggingface.co/datasets/EgoGPT/EgoIT_Video) and construct the directory as follows:
 ```python
 from huggingface_hub import snapshot_download
 local_path = snapshot_download(
@@ -66,12 +76,25 @@ local_path = snapshot_download(
     local_dir="data"
 )
 ```
+```bash
+data/ # The directory for videos and audio (keep the same as the huggingface dataset)
+├── ADL/
+│   ├── images/
+│   ├── audio/
+├── ChardesEgo/
+│   ├── *.mp4/
+│   ...
 
-### Training
-
-```shell
-bash scripts/train_egogpt.sh
+datasets/ # The directory for json
+├── ADL/
+│   ├── ADL.json
+├── ChardesEgo/
+│   ├── ChardesEgo.json
+├── ...
+├── EgoIT.json # The concatenated json for training
 ```
+
+3. If you want to train EgoGPT from scratch(e.g from LLaVA-Onevision), please download the audio project from [here](https://github.com/egolife-ntu/EgoLife-Audio).
 
 ### Inference
 
@@ -79,25 +102,11 @@ bash scripts/train_egogpt.sh
 python inference.py --pretrained_path checkpoints/EgoGPT-7b-EgoIT-EgoLife --video_path data/train/A1_JAKE/DAY1/DAY1_A1_JAKE_11223000.mp4 --audio_path audio/DAY1_A1_JAKE_11223000.mp3 --query "Please describe the video in detail."
 ```
 
-## Demo
-
-
-## ✅ TODO List
-
-- [x] Release all the model weights.
-- [x] Provide a Gradio demo for interaction.
-- [x] Release training and inference scripts.
-- [x] Publish evaluation code for various benchmarks.
-- [ ] Enhance model with additional personalization features.
-- [ ] Explore integration with more datasets for improved adaptability.
-
-## 📃 Main Results
-
-### Performance of EgoGPT
-
-<p align="center" width="100%">
-<img src="assets/main_results.png" alt="results_personalized_interaction.png" width=80%>
-</p>
+### Training
+Please replace the `DATA_PATH`, `MODEL_PATH`, `SPEECH_PROJECTOR_PATH` and `SPEECH_ENCODER_PATH` in the following command with your own paths.
+```shell
+bash scripts/train_egogpt.sh
+```
 
 ## LICENSE
 Our code is released under the Apache-2.0 License.
