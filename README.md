@@ -57,7 +57,7 @@ EgoLife/
 │── EgoRAG/                # Retrieval-augmented generation (RAG) module
 │── README.md              # Main documentation for the overall project
 ```
-Please dive in to the README of [EgoGPT](./EgoGPT/README.md) and [EgoRAG](./EgoRAG/README.md) for more details.
+Please dive in to the project of [EgoGPT](./EgoGPT/README.md) and [EgoRAG](./EgoRAG/README.md) for more details.
 
 ## 📢 Citation
 
@@ -71,3 +71,6 @@ If you use EgoLife in your research, please cite our work:
   year={2025},
 }
 ```
+
+## 📝 License
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
