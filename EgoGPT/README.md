@@ -58,7 +58,7 @@ tar -xzvf EgoGPT-7b-EgoIT-EgoLife.tar.gz
 
 2. Download the EgoIT dataset from 🤗[Huggingface](https://huggingface.co/datasets/EgoGPT/EgoIT_Video). The dataset will be moved to the `./data/` directory.
 
-```shell
+```python
 from huggingface_hub import snapshot_download
 local_path = snapshot_download(
     repo_id="EgoGPT/EgoIT_Video", 
