@@ -108,6 +108,24 @@ Please replace the `DATA_PATH`, `MODEL_PATH`, `SPEECH_PROJECTOR_PATH` and `SPEEC
 bash scripts/train_egogpt.sh
 ```
 
+### Evaluation
+#### Setup
+Our evaluation are conducted on lmms-eval. Please refers to the [lmms-eval](https://github.com/EvolvingLMMs-Lab/lmms-eval) repository for the evaluation setup.
+
+#### Run
+```shell
+python3 -m accelerate.commands.launch \
+    --main_process_port 10043 \
+    --num_processes=8 \
+    -m lmms_eval \
+    --model egogpt \
+    --model_args pretrained=YOUR_EGOGPT_MODEL_PATH, conv_template="qwen_1_5"\
+    --tasks egoplan, egothink \
+    --batch_size 1 \
+    --log_samples \
+    --output_path YOUR_OUTPUT_PATH
+```
+
 ## LICENSE
 Our code is released under the Apache-2.0 License.
 ## Acknowledgements
