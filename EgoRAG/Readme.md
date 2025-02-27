@@ -1,15 +1,17 @@
-
 # EgoRAG
 
 EgoRAG is a retrieval-augmented generation (RAG) system that enhances memory and query capabilities, enabling personalized and long-term comprehension.
 
+| ![teaser.png](../assets/egorag.png) |
+|:---|
+| <p align="justify"><b>Figure 1. The Overview of EgoRAG Project.</b> A schematic representation of the EgoRAG system that processes user queries through a multi-stage pipeline: First, it identifies relevant time ranges using multi-level summarization. Then, it retrieves pertinent video segments based on those time ranges. Finally, it gathers multiple pieces of evidence which are fed into an answering model (e.g., EgoGPT) to generate comprehensive responses to user queries.
+</p>
+
 ## Installation
 
-To install EgoRAG, run the following commands:
+To install EgoRAG, make sure you are in the `EgoRAG` directory and run the following commands:
 
-```
-git clone <egorag-url>
-cd <egorag-url>
+```bash
 pip install -e .
 ```
 
@@ -29,22 +31,15 @@ To use the EgoRAG system, questions must be in the following format:
         "time": "11210217"
     },
     "type": "EntityLog",
-    "type_chinese": "实体日志",
     "need_audio": false,
     "need_name": true,
     "last_time": false,
     "trigger": "The table was filled with various tools and parts",
-    "trigger_chinese": "桌上摆满了各种工具和零件",
     "question": "Who used the screwdriver first?",
-    "question_chinese": "谁最先使用过螺丝刀？",
     "choice_a": "Tasha",
-    "choice_a_chinese": "小薇",
     "choice_b": "Alice",
-    "choice_b_chinese": "爱丽丝",
     "choice_c": "Shure",
-    "choice_c_chinese": "修硕",
     "choice_d": "Lucia",
-    "choice_d_chinese": "露西",
     "answer": "B",
     "target_time": {
         "date": "DAY1",
@@ -52,7 +47,6 @@ To use the EgoRAG system, questions must be in the following format:
     },
     "keywords": "use screwdriver",
     "reason": "Saw Alice tightening screws with a screwdriver",
-    "reason_chinese": "看见爱丽丝用螺丝刀紧螺丝"
 }
 ```
 
@@ -78,7 +72,7 @@ If you have captions for each video, you can gather them into a single JSON file
 
 To create the database, run:
 
-```
+```bash
 python3 create_database.py --db_name "DB_NAME" --json_path "/path/to/your/database.json"
 ```
 
@@ -88,7 +82,7 @@ This will generate the database `<DB_NAME>`.
 
 In this method, the model will go through all the videos, extract captions, and add them to the database one by one. Use the following command to create the database:
 
-```
+```bash
 python3 main.py \
     --name "NAME"\
     --db_name "DB_NAME"\     
@@ -101,13 +95,13 @@ python3 main.py \
 
 To improve query performance, an event summary must be generated for each database. Use the following command to generate the event summary:
 
-```
+```bash
 python3 gen_event.py --db_name <DB_NAME> --diary_dir "folder/to/save/diary"
 ```
 
 Then, run:
 
-```
+```bash
 python3 main.py  \   
     --name "NAME" \    
     --db_name "DB_NAME" \    
@@ -123,7 +117,7 @@ python3 main.py  \
 
 To answer specific query results, use the following command:
 
-```
+```bash
 python3 main.py\     
     --name "NAME"\     
     --db_name "DB_NAME"\     
@@ -137,7 +131,7 @@ python3 main.py\
 
 Alternatively, you can automatically answer after querying with the following command:
 
-```
+```bash
 python3 main.py \    
     --name "NAME"\     
     --db_name "DB_NAME"\     

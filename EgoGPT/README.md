@@ -1,16 +1,5 @@
 # 🤖🧠 EgoGPT:
-
-**Project Page:** [![EgoLife](https://img.shields.io/badge/EgoLife-project_page-white)](https://egolife-ai.github.io/) 
-
-**Blog:** [![demo](https://img.shields.io/badge/EgoGPT-Blog-lightblue)](https://egolife-ai.github.io/blog/) 
-
-**Demo:** [![demo](https://img.shields.io/badge/EgoGPT-Demo-teal)](https://egolife.lmms-lab.com/) 
-
-**Weights in Huggingface:** [![hf_checkpoint](https://img.shields.io/badge/🤗-EgoGPT_7b-yellow)](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342)
-
-**arXiv Paper:** [![arXiv](https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b.svg?logo=arXiv)](https://arxiv.org/)
-
-**Training Data:** [![data](https://img.shields.io/badge/EgoGPT-Data-purple)](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342) 
+[![EgoLife](https://img.shields.io/badge/EgoLife-project_page-white)](https://egolife-ai.github.io/)  &nbsp;&nbsp;&nbsp;  [![demo](https://img.shields.io/badge/EgoGPT-Blog-lightblue)](https://egolife-ai.github.io/blog/)  &nbsp;&nbsp;&nbsp;  [![demo](https://img.shields.io/badge/EgoGPT-Demo-teal)](https://egolife.lmms-lab.com/)  &nbsp;&nbsp;&nbsp;  [![hf_checkpoint](https://img.shields.io/badge/🤗-EgoGPT_7b-yellow)](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342)  &nbsp;&nbsp;&nbsp;  [![data](https://img.shields.io/badge/EgoGPT-Data-purple)](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342)
 
 
 ## 📢 News
@@ -19,22 +8,11 @@
 
 ## Introduction
 
-EgoGPT is an omni-modal model trained on
-egocentric datasets, achieving state-of-the-art performance
-on egocentric video understanding. 
+| ![teaser.png](../assets/egogpt.png) |
+|:---|
+| <p align="justify"><b>Figure 1. The Overview of EgoGPT Project.</b> EgoGPT is a omni-modal model trained on egocentric datasets, achieving state-of-the-art performance on egocentric video understanding. The left above illustrates the progression from LLaVA-OneVision (Qwen2 as the LLM) to an audio-supported variant by integrating Whisper as an audio encoder and fine-tuning an audio projector with ASR datasets. The final EgoGPT model is trained using SFT on EgoIT and EgoLife datasets. The left table presents the Dataset Composition of EgoIT-99K, summarizing nine egocentric video datasets used for instruction tuning, including the total duration, number of videos, and question-answer pairs. The right table reports the Performance of EgoGPT-7B, comparing it against state-of-the-art commercial and open-source models across three egocentric benchmarks: EgoSchema, EgoPlan, and EgoThink. The results indicate that EgoGPT, trained on EgoIT and EgoLife Day 1, achieves strong performance in egocentric reasoning tasks.
+</p>
 
-
-### Architecture
-<div align="center"><img src="assets/method.png" width="100%"/></div>
-The system comprises (a) a Captioning Stage powered by EgoGPT for dense visual-audio
-understanding of egocentric clips, and (b) a Question Answering Stage utilizing EgoRAG for memory retrieval and response generation. The
-example demonstrates temporal reasoning across multiple days, with keyword extraction, evidence retrieval, and context-aware answer
-generation for a breakfast-related query
-
-### Performance
-
-<div align="center"><img src="assets/main_results.png" alt="results_personalized_interaction.png" width=100%></div>
-EgoGPT achieves state-of-the-art performance among existing egocentric benchmarks.
 
 ## Installation
 
@@ -100,6 +78,12 @@ datasets/ # The directory for json
 
 ```shell
 python inference.py --pretrained_path checkpoints/EgoGPT-7b-EgoIT-EgoLife --video_path data/train/A1_JAKE/DAY1/DAY1_A1_JAKE_11223000.mp4 --audio_path audio/DAY1_A1_JAKE_11223000.mp3 --query "Please describe the video in detail."
+```
+
+### Demo
+Run the following command to start the demo that identical to the [EgoGPT Demo](https://egolife.lmms-lab.com/).
+```shell
+python gradio_demo.py
 ```
 
 ### Training
