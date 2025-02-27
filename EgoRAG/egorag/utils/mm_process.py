@@ -1,5 +1,6 @@
-import numpy as np
 from typing import Dict, Tuple
+
+import numpy as np
 
 
 def merge_videos(
@@ -35,7 +36,8 @@ def merge_videos(
         current_index += num_frames
 
     # Concatenate all frames into a single NumPy array
-    merged_array = np.concatenate(merged_frames,
-                                  axis=0) if merged_frames else np.array([])
+    merged_array = (
+        np.concatenate(merged_frames, axis=0) if merged_frames else np.array([])
+    )
 
     return merged_array, frame_ranges

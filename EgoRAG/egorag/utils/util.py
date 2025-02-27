@@ -7,7 +7,8 @@ def time_to_frame_idx(time_int: int, fps: int) -> int:
     """
     # Ensure time_int is a string for slicing
     time_str = str(time_int).zfill(
-        8)  # Pad with zeros if necessary to ensure it's 8 digits
+        8
+    )  # Pad with zeros if necessary to ensure it's 8 digits
 
     hours = int(time_str[:2])
     minutes = int(time_str[2:4])

@@ -1,56 +1,71 @@
 from egorag.utils.mm_process import merge_videos
+
 try:
-    import os
-    import requests
     import base64
-    import numpy as np
-    from PIL import Image
+    import os
     from io import BytesIO
-    import decord
-    from egorag.models.base import BaseQueryModel
-    from typing import Dict, List, Any
+    from typing import Any, Dict, List
+
     import cv2
+    import decord
+    import numpy as np
+    import requests
+    from egorag.models.base import BaseQueryModel
+    from PIL import Image
 except:
     print(
-        'Please install the required packages: pip install requests, pip install decord, pip install Pillow'
+        "Please install the required packages: pip install requests, pip install decord, pip install Pillow"
     )
 
-from egorag.utils.util import time_to_frame_idx
-
-import sys 
-#sys.path.append("/mnt/lzy/llava-video")
-
-import re
-import os
 import argparse
-import torch
 import math
-import numpy as np
-from typing import Dict, Optional, Sequence, List
-import transformers
-from transformers import AutoConfig
-from PIL import Image
+import os
+import re
+import sys
+from typing import Dict, List, Optional, Sequence
 
-from llava.conversation import conv_templates, SeparatorStyle
+import numpy as np
+import torch
+import transformers
+from decord import VideoReader, cpu
+from egorag.utils.util import time_to_frame_idx
+from llava.constants import DEFAULT_IMAGE_TOKEN, IGNORE_INDEX, IMAGE_TOKEN_INDEX
+from llava.conversation import SeparatorStyle, conv_templates
+from llava.mm_utils import (
+    KeywordsStoppingCriteria,
+    get_model_name_from_path,
+    process_anyres_video_genli,
+    tokenizer_image_token,
+)
 from llava.model.builder import load_pretrained_model
 from llava.utils import disable_torch_init
-from llava.mm_utils import tokenizer_image_token, get_model_name_from_path, KeywordsStoppingCriteria, process_anyres_video_genli
-from llava.constants import IGNORE_INDEX, DEFAULT_IMAGE_TOKEN, IMAGE_TOKEN_INDEX
+from PIL import Image
+from transformers import AutoConfig
 
-from decord import VideoReader, cpu
+# sys.path.append("/mnt/lzy/llava-video")
+
+
+
 
 
 def split_list(lst, n):
     """Split a list into n (roughly) equal-sized chunks"""
     chunk_size = math.ceil(len(lst) / n)  # integer division
-    return [lst[i:i+chunk_size] for i in range(0, len(lst), chunk_size)]
+    return [lst[i : i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
 
 def get_chunk(lst, n, k):
     chunks = split_list(lst, n)
     return chunks[k]
 
-def preprocess_qwen(sources, tokenizer: transformers.PreTrainedTokenizer, has_image: bool = False, max_len=2048, system_message: str = "You are a helpful assistant.") -> Dict:
+
+def preprocess_qwen(
+    sources,
+    tokenizer: transformers.PreTrainedTokenizer,
+    has_image: bool = False,
+    max_len=2048,
+    system_message: str = "You are a helpful assistant.",
+) -> Dict:
     roles = {"human": "<|im_start|>user", "gpt": "<|im_start|>assistant"}
 
     im_start, im_end = tokenizer.additional_special_tokens_ids[:2]
@@ -67,32 +82,59 @@ def preprocess_qwen(sources, tokenizer: transformers.PreTrainedTokenizer, has_im
         source = source[1:]
 
     input_id, target = [], []
-    system = [im_start] + _system + tokenizer(system_message).input_ids + [im_end] + nl_tokens
+    system = (
+        [im_start]
+        + _system
+        + tokenizer(system_message).input_ids
+        + [im_end]
+        + nl_tokens
+    )
     input_id += system
     target += [im_start] + [IGNORE_INDEX] * (len(system) - 3) + [im_end] + nl_tokens
     assert len(input_id) == len(target)
     for j, sentence in enumerate(source):
         role = roles[sentence["from"]]
-        if has_image and sentence["value"] is not None and "<image>" in sentence["value"]:
+        if (
+            has_image
+            and sentence["value"] is not None
+            and "<image>" in sentence["value"]
+        ):
             num_image = len(re.findall(DEFAULT_IMAGE_TOKEN, sentence["value"]))
-            texts = sentence["value"].split('<image>')
-            _input_id = tokenizer(role).input_ids + nl_tokens 
-            for i,text in enumerate(texts):
-                _input_id += tokenizer(text).input_ids 
-                if i<len(texts)-1:
+            texts = sentence["value"].split("<image>")
+            _input_id = tokenizer(role).input_ids + nl_tokens
+            for i, text in enumerate(texts):
+                _input_id += tokenizer(text).input_ids
+                if i < len(texts) - 1:
                     _input_id += [IMAGE_TOKEN_INDEX] + nl_tokens
             _input_id += [im_end] + nl_tokens
-            assert sum([i==IMAGE_TOKEN_INDEX for i in _input_id])==num_image
+            assert sum([i == IMAGE_TOKEN_INDEX for i in _input_id]) == num_image
         else:
             if sentence["value"] is None:
                 _input_id = tokenizer(role).input_ids + nl_tokens
             else:
-                _input_id = tokenizer(role).input_ids + nl_tokens + tokenizer(sentence["value"]).input_ids + [im_end] + nl_tokens
+                _input_id = (
+                    tokenizer(role).input_ids
+                    + nl_tokens
+                    + tokenizer(sentence["value"]).input_ids
+                    + [im_end]
+                    + nl_tokens
+                )
         input_id += _input_id
         if role == "<|im_start|>user":
-            _target = [im_start] + [IGNORE_INDEX] * (len(_input_id) - 3) + [im_end] + nl_tokens
+            _target = (
+                [im_start]
+                + [IGNORE_INDEX] * (len(_input_id) - 3)
+                + [im_end]
+                + nl_tokens
+            )
         elif role == "<|im_start|>assistant":
-            _target = [im_start] + [IGNORE_INDEX] * len(tokenizer(role).input_ids) + _input_id[len(tokenizer(role).input_ids) + 1 : -2] + [im_end] + nl_tokens
+            _target = (
+                [im_start]
+                + [IGNORE_INDEX] * len(tokenizer(role).input_ids)
+                + _input_id[len(tokenizer(role).input_ids) + 1 : -2]
+                + [im_end]
+                + nl_tokens
+            )
         else:
             raise NotImplementedError
         target += _target
@@ -102,6 +144,7 @@ def preprocess_qwen(sources, tokenizer: transformers.PreTrainedTokenizer, has_im
     input_ids = torch.tensor(input_ids, dtype=torch.long)
     targets = torch.tensor(targets, dtype=torch.long)
     return input_ids
+
 
 class Oryx(BaseQueryModel):
     def __init__(
@@ -120,14 +163,35 @@ class Oryx(BaseQueryModel):
             overwrite_config = {}
             overwrite_config["mm_resampler_type"] = "dual_perceiver_region_avg"
             overwrite_config["patchify_video_feature"] = False
-            overwrite_config["attn_implementation"] = "sdpa" if torch.__version__ >= "2.1.2" else "eager"
+            overwrite_config["attn_implementation"] = (
+                "sdpa" if torch.__version__ >= "2.1.2" else "eager"
+            )
 
             cfg_pretrained = AutoConfig.from_pretrained(self.model_path)
-        if '7b' in self.model_path:
-            self.tokenizer, self.model, self.image_processor, context_len = load_pretrained_model(self.model_path, None, self.model_name, device_map="cuda:0", overwrite_config=overwrite_config)
-        self.model.to('cuda').eval()
+        if "7b" in self.model_path:
+            (
+                self.tokenizer,
+                self.model,
+                self.image_processor,
+                context_len,
+            ) = load_pretrained_model(
+                self.model_path,
+                None,
+                self.model_name,
+                device_map="cuda:0",
+                overwrite_config=overwrite_config,
+            )
+        self.model.to("cuda").eval()
 
-    def process_video(self, video_path: str, video_start_time: int, start_time: int, end_time: int, fps=1,  max_frames_num=32):
+    def process_video(
+        self,
+        video_path: str,
+        video_start_time: int,
+        start_time: int,
+        end_time: int,
+        fps=1,
+        max_frames_num=32,
+    ):
         # Initialize video reader
         vr = decord.VideoReader(video_path, ctx=decord.cpu(0), num_threads=1)
         total_frame_num = len(vr)
@@ -151,35 +215,58 @@ class Oryx(BaseQueryModel):
         end_frame = int(round(end_frame))
 
         # Sample frames based on the provided fps (e.g., 1 frame per second)
-        frame_idx = [i for i in range(start_frame, end_frame) if (i - start_frame) % int(video_fps / fps) == 0]
-        uniform_sampled_frames = np.linspace(start_frame, end_frame - 1, max_frames_num, dtype=int)
+        frame_idx = [
+            i
+            for i in range(start_frame, end_frame)
+            if (i - start_frame) % int(video_fps / fps) == 0
+        ]
+        uniform_sampled_frames = np.linspace(
+            start_frame, end_frame - 1, max_frames_num, dtype=int
+        )
         frame_idx = uniform_sampled_frames.tolist()
 
         # Get the video frames for the sampled indices
         video = vr.get_batch(frame_idx).asnumpy()
 
         # Return processed video and the corresponding frame indices
-        return {'processed_video': video, 'frame_idx': frame_idx, 'start_time': start_time, 'end_time': end_time}
+        return {
+            "processed_video": video,
+            "frame_idx": frame_idx,
+            "start_time": start_time,
+            "end_time": end_time,
+        }
 
-
-    def inference_video(self, video_path, video_start_time, start_time, end_time, human_query, system_message=None):
-
-        processed_data = self.process_video(video_path,video_start_time,start_time,end_time)
-        image_arrays = processed_data['processed_video']
-        frame_idx = processed_data['frame_idx']
+    def inference_video(
+        self,
+        video_path,
+        video_start_time,
+        start_time,
+        end_time,
+        human_query,
+        system_message=None,
+    ):
+        processed_data = self.process_video(
+            video_path, video_start_time, start_time, end_time
+        )
+        image_arrays = processed_data["processed_video"]
+        frame_idx = processed_data["frame_idx"]
 
         video = [Image.fromarray(frame) for frame in image_arrays]
 
         question = system_message + human_query
-        
+
         conv = conv_templates[self.conv_template].copy()
 
         conv.append_message(conv.roles[0], question)
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
 
-        input_ids = preprocess_qwen([{'from': 'human','value': question},{'from': 'gpt','value': None}], self.tokenizer, has_image=True).cuda()
-        
+        input_ids = preprocess_qwen(
+            [{"from": "human", "value": question}, {"from": "gpt", "value": None}],
+            self.tokenizer,
+            has_image=True,
+        ).cuda()
+
         video_processed = []
         for idx, frame in enumerate(video):
             self.image_processor.do_resize = False
@@ -187,7 +274,7 @@ class Oryx(BaseQueryModel):
             frame = process_anyres_video_genli(frame, self.image_processor, None)
 
             video_processed.append(frame.unsqueeze(0))
-        
+
         video_processed = torch.cat(video_processed, dim=0).bfloat16().cuda()
         video_processed = (video_processed, video_processed)
 
@@ -195,7 +282,9 @@ class Oryx(BaseQueryModel):
 
         stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
         keywords = [stop_str]
-        stopping_criteria = KeywordsStoppingCriteria(keywords, self.tokenizer, input_ids)
+        stopping_criteria = KeywordsStoppingCriteria(
+            keywords, self.tokenizer, input_ids
+        )
 
         temperature = 0.2
         top_p = 0.9
@@ -213,10 +302,10 @@ class Oryx(BaseQueryModel):
                 max_new_tokens=128,
                 use_cache=True,
             )
-        
+
         outputs = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
         outputs = outputs.strip()
         if outputs.endswith(stop_str):
-            outputs = outputs[:-len(stop_str)]
+            outputs = outputs[: -len(stop_str)]
         outputs = outputs.strip()
         return outputs

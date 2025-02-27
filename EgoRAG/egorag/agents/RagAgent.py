@@ -1,19 +1,20 @@
-import re
+import json
 import os
-from collections import defaultdict
+import re
+import time
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
-from tqdm import tqdm
+from collections import defaultdict
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+import requests
 from egorag.database.Chroma import Chroma
 from egorag.models import BaseQueryModel
-import requests
-import numpy as np
-import time
-import json
 from tqdm import tqdm
 
-def get_ids(question,results):
-    system_prompt='''
+
+def get_ids(question, results):
+    system_prompt = """
     You are an AI assistant tasked with helping to process and analyze search results for specific questions. 
     When a user provides a question along with a set of search results, your job is to:
 
@@ -66,80 +67,87 @@ def get_ids(question,results):
     "ID: DAY3-22463000-22470000_0"
 
     Explanation: The most recent action related to the guitar being played is recorded at `DAY3_22463000_22470000_0`, which occurred at `22463000` and directly answers the user's question about the last time the guitar was tuned or played.
-    '''
-    
-    prompt=f"Question:{question}\n Search Results:{results}"
-    answer=call_gpt4(prompt=prompt,system_message=system_prompt,temperature=0.1)
+    """
+
+    prompt = f"Question:{question}\n Search Results:{results}"
+    answer = call_gpt4(prompt=prompt, system_message=system_prompt, temperature=0.1)
     print(answer)
     # Extract the ID from the answer using regex
-    id_match = re.search(r'ID:\s*(DAY\d+-\d{8}-\d{8}_\d)', answer)
+    id_match = re.search(r"ID:\s*(DAY\d+-\d{8}-\d{8}_\d)", answer)
     if id_match:
         id = id_match.group(1)
-        
+
     else:
         print("No ID found in the response.")
-        id=None
+        id = None
     return id
-    
+
+
 def get_max_endtime_result(raw_results):
     # 首先找出最大的date
-    max_date = max(metadata['date'] for metadata in raw_results['metadatas'][0])
-    
+    max_date = max(metadata["date"] for metadata in raw_results["metadatas"][0])
+
     # 在最大date的条目中找出最大的end_time
     max_end_time_idx = max(
-        (i for i, metadata in enumerate(raw_results['metadatas'][0]) if metadata['date'] == max_date),
-        key=lambda i: raw_results['metadatas'][0][i]['end_time']
+        (
+            i
+            for i, metadata in enumerate(raw_results["metadatas"][0])
+            if metadata["date"] == max_date
+        ),
+        key=lambda i: raw_results["metadatas"][0][i]["end_time"],
     )
-    
+
     # 创建一个新字典，只包含选中的数据
     return {
-        'ids': [raw_results['ids'][0][max_end_time_idx]],
-        'documents': [raw_results['documents'][0][max_end_time_idx]],
-        'metadatas': [raw_results['metadatas'][0][max_end_time_idx]],
-        'distances': [raw_results['distances'][0][max_end_time_idx]]
+        "ids": [raw_results["ids"][0][max_end_time_idx]],
+        "documents": [raw_results["documents"][0][max_end_time_idx]],
+        "metadatas": [raw_results["metadatas"][0][max_end_time_idx]],
+        "distances": [raw_results["distances"][0][max_end_time_idx]],
     }
-def timestamp_operation(timestamp1, timestamp2, operation='add', fps=30):
+
+
+def timestamp_operation(timestamp1, timestamp2, operation="add", fps=30):
     """
     Perform addition or subtraction on timestamps.
-    
+
     Args:
         timestamp1: First timestamp (int or str, 7 or 8 digits)
-        timestamp2: Second timestamp (int or str, 7 or 8 digits) 
+        timestamp2: Second timestamp (int or str, 7 or 8 digits)
         operation: 'add' or 'subtract' (default: 'add')
         fps: Frames per second (default: 30)
-    
+
     Returns:
         int: Result of timestamp operation
     """
     # Convert to strings and pad to 8 digits if needed
     ts1 = str(timestamp1).zfill(8)
     ts2 = str(timestamp2).zfill(8)
-    
+
     # Extract components
     h1, m1, s1, f1 = int(ts1[:2]), int(ts1[2:4]), int(ts1[4:6]), int(ts1[6:])
     h2, m2, s2, f2 = int(ts2[:2]), int(ts2[2:4]), int(ts2[4:6]), int(ts2[6:])
-    
+
     # Convert all to frames using fps
     total1 = ((h1 * 60 + m1) * 60 + s1) * fps + f1
     total2 = ((h2 * 60 + m2) * 60 + s2) * fps + f2
-    
+
     # Perform operation
-    if operation == 'add':
+    if operation == "add":
         result = total1 + total2
     else:  # subtract
         result = total1 - total2
         if result < 0:
             result = 0
-    
+
     # Convert back to HHMMSSFF format
     frames = result % fps
     seconds = (result // fps) % 60
     minutes = (result // (fps * 60)) % 60
     hours = (result // (fps * 60 * 60)) % 100
-    
+
     # Scale frames to 0-99 range
     frames = int((frames / fps) * 100)
-    
+
     return int(f"{hours:02d}{minutes:02d}{seconds:02d}{frames:02d}")
 
 
@@ -147,61 +155,70 @@ def parse_video_map(video_map):
     parsed_data = []
     for key, video_path in video_map.items():
         # 分割 key 获取 date, start_time, end_time
-        key_parts = key.split('-')
+        key_parts = key.split("-")
         date = key_parts[0]
         start_time = int(key_parts[1])
         end_time = int(key_parts[2])
 
         # 提取 video_path 中的时间部分
-        match = re.search(r'_(\d{8})\.mp4$', video_path)  # 提取视频路径中的时间部分
+        match = re.search(r"_(\d{8})\.mp4$", video_path)  # 提取视频路径中的时间部分
         if match:
             video_start_time = int(match.group(1))  # 将提取到的时间转为整数
         else:
             video_start_time = None  # 如果未找到时间部分，则设为 None
 
         # 提取 date 中的数字部分作为 int_date
-        match = re.search(r'\d+', date)
+        match = re.search(r"\d+", date)
         int_date = int(match.group()) if match else None
 
         # 将解析后的数据添加到结果列表中
-        parsed_data.append({
-            'date': date,
-            'int_date': int_date,
-            'start_time': start_time,
-            'end_time': end_time,
-            'video_path': video_path,
-            'video_id': key,
-            'video_start_time': video_start_time  # 添加视频的开始时间
-        })
+        parsed_data.append(
+            {
+                "date": date,
+                "int_date": int_date,
+                "start_time": start_time,
+                "end_time": end_time,
+                "video_path": video_path,
+                "video_id": key,
+                "video_start_time": video_start_time,  # 添加视频的开始时间
+            }
+        )
     return parsed_data
 
 
 def transform_timedict(time_dict):
-
     # 使用 defaultdict 来自动创建列表
     date_time_mapping = defaultdict(list)
 
     # 填充字典
     for entry in time_dict:
-        date_time_mapping[entry['date']].append(str(entry['time']))
+        date_time_mapping[entry["date"]].append(str(entry["time"]))
 
     # 对每个日期下的时间进行排序
     for date in date_time_mapping:
         date_time_mapping[date] = sorted(date_time_mapping[date])
     return date_time_mapping
 
+
 import time
-import requests
 from typing import Optional
 
-def call_gpt4(prompt: str, system_message: str = "You are an effective first perspective assistant.", temperature=0.9, top_p=0.95) -> Optional[str]:
+import requests
+
+
+def call_gpt4(
+    prompt: str,
+    system_message: str = "You are an effective first perspective assistant.",
+    temperature=0.9,
+    top_p=0.95,
+) -> Optional[str]:
     """
     Call GPT-4 API with given prompt and system message.
-    
+
     Args:
         prompt (str): The user prompt to send to GPT-4
         system_message (str): System message to set context for GPT-4
-        
+
     Returns:
         Optional[str]: The response content from GPT-4, or None if request fails after retries
     """
@@ -219,18 +236,12 @@ def call_gpt4(prompt: str, system_message: str = "You are an effective first per
 
     payload = {
         "messages": [
-            {
-                "role": "system",
-                "content": [{"type": "text", "text": system_message}]
-            },
-            {
-                "role": "user",
-                "content": [{"type": "text", "text": prompt}]
-            }
+            {"role": "system", "content": [{"type": "text", "text": system_message}]},
+            {"role": "user", "content": [{"type": "text", "text": prompt}]},
         ],
         "temperature": temperature,
         "top_p": top_p,
-        "max_tokens": 2200
+        "max_tokens": 2200,
     }
 
     retries = 5
@@ -238,7 +249,7 @@ def call_gpt4(prompt: str, system_message: str = "You are an effective first per
         try:
             response = requests.post(GPT4V_ENDPOINT, headers=headers, json=payload)
             response.raise_for_status()
-            return response.json()['choices'][0]['message']['content']
+            return response.json()["choices"][0]["message"]["content"]
         except Exception as e:
             print(f"Attempt {attempt + 1} failed. Error: {e}")
             if attempt < retries - 1:  # No delay needed after the last attempt
@@ -247,21 +258,22 @@ def call_gpt4(prompt: str, system_message: str = "You are an effective first per
                 print("All retry attempts failed.")
                 return "error"
 
+
 class RagAgent(ABC):
-    def __init__(self, 
-                 model: Optional[BaseQueryModel] = None,
-                 database_t: Optional[Chroma] = None,
-                 database_i: Optional[Chroma] = None,
-                 name: str = 'NULL',
-                 video_base_dir: str = 'data/videos'):
+    def __init__(
+        self,
+        model: Optional[BaseQueryModel] = None,
+        database_t: Optional[Chroma] = None,
+        database_i: Optional[Chroma] = None,
+        name: str = "NULL",
+        video_base_dir: str = "data/videos",
+    ):
         super().__init__()
         self.model = model
         self.database_t = database_t
         self.database_i = database_i
         self.name = name
         self.video_base_dir = video_base_dir
-
-    
 
     def calculate_accuracy(self, answers, save_to_file=None):
         total_count = 0
@@ -270,8 +282,8 @@ class RagAgent(ABC):
 
         for answer in answers:
             # 获取正确答案和模型回答
-            correct_answer = answer['metadata']['answer']
-            model_answer = answer['model_option']
+            correct_answer = answer["metadata"]["answer"]
+            model_answer = answer["model_option"]
 
             # 模型回答有效且不为 None 时，才进行比较
             total_count += 1
@@ -285,25 +297,23 @@ class RagAgent(ABC):
             correct_count += is_correct
 
             # 记录当前回答的结果
-            answer['is_correct'] = is_correct
+            answer["is_correct"] = is_correct
             results.append(answer)
         # 计算正确率，如果总题数为0，返回0避免除以0的错误
         accuracy = correct_count / total_count if total_count > 0 else 0
 
         # 如果传入了保存文件的地址，则将结果保存为 JSON 文件
         if save_to_file:
-            with open(save_to_file, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'accuracy': accuracy,
-                    'results': results
-                },
-                        f,
-                        ensure_ascii=False,
-                        indent=4)
+            with open(save_to_file, "w", encoding="utf-8") as f:
+                json.dump(
+                    {"accuracy": accuracy, "results": results},
+                    f,
+                    ensure_ascii=False,
+                    indent=4,
+                )
 
         # 返回正确率
         return accuracy
-
 
     def get_video_mapping(self, sorted_video_times, all_times):
         video_path_mapping = {}
@@ -318,97 +328,101 @@ class RagAgent(ABC):
 
                 # 找到 start_time 所属的 sorted_video_time 段
                 for j in range(len(video_time_list) - 1):
-                    if video_time_list[j] <= start_time < video_time_list[j +
-                                                                          1]:
+                    if video_time_list[j] <= start_time < video_time_list[j + 1]:
                         # 确定视频地址，以 sorted_video_time[j] 为文件名
                         video_path = os.path.join(
-                            base_dir, f'{date}',
-                            f'{date}_{self.name}_{video_time_list[j]}.mp4')
+                            base_dir,
+                            f"{date}",
+                            f"{date}_{self.name}_{video_time_list[j]}.mp4",
+                        )
                         break
                 else:
                     # 如果未找到合适的段（理论上不应该发生，如果 merged_times 与 sorted_video_time 对应）
                     video_path = None
 
                 # 将时间段和对应的视频路径添加到字典中
-                video_path_mapping[
-                    f'{date}-{start_time}-{end_time}'] = video_path
+                video_path_mapping[f"{date}-{start_time}-{end_time}"] = video_path
         return video_path_mapping
 
-    def add_to_db_t(self,
-                    id,
-                    sample,
-                    caption_args,
-                    human_query,
-                    system_message=None):
+    def add_to_db_t(self, id, sample, caption_args, human_query, system_message=None):
         time_start = time.time()
-        start_time = sample['start_time']
-        end_time = sample['end_time']
-        video_path = sample['video_path']
-        date = sample['int_date']
-        video_start_time = sample['video_start_time']
-        
+        start_time = sample["start_time"]
+        end_time = sample["end_time"]
+        video_path = sample["video_path"]
+        date = sample["int_date"]
+        video_start_time = sample["video_start_time"]
+
         try:
             # Set timeout to 30 seconds
             import signal
+
             def timeout_handler(signum, frame):
                 raise TimeoutError("Inference took too long")
-            
+
             signal.signal(signal.SIGALRM, timeout_handler)
             signal.alarm(180)
-            
-            caption = self.model.inference_video(video_path, video_start_time, start_time, end_time, human_query)
+
+            caption = self.model.inference_video(
+                video_path, video_start_time, start_time, end_time, human_query
+            )
             signal.alarm(0)  # Disable alarm
             print(caption)
         except TimeoutError as te:
-            print(f'Timeout error in captioning: {te}')
+            print(f"Timeout error in captioning: {te}")
             return None
         except Exception as e:
-            print(f'Error in captioning: {e}')
+            print(f"Error in captioning: {e}")
             return None
-           
-        if caption is None or caption == '' or caption == 'Error in captioning':
+
+        if caption is None or caption == "" or caption == "Error in captioning":
             return None
 
         sentences = [
-            sentence.strip() + '.' for sentence in caption.split('.')
+            sentence.strip() + "."
+            for sentence in caption.split(".")
             if sentence.strip()
         ]
         embeddings = self.database_t.embedding_function(sentences)
         # 为每个句子分配一个新的 id
-        new_ids = [f'{id}_{i}' for i in range(len(sentences))]
+        new_ids = [f"{id}_{i}" for i in range(len(sentences))]
         # 创建新的 add_element
-        add_element = dict(ids=new_ids,
-                           documents=sentences,
-                           embeddings=embeddings,
-                           metadatas=[{
-                               'start_time': int(start_time),
-                               'end_time': int(end_time),
-                               'video_path': video_path,
-                               'date': date
-                           }] * len(sentences))  # 复制 metadata 以匹配每个子句
+        add_element = dict(
+            ids=new_ids,
+            documents=sentences,
+            embeddings=embeddings,
+            metadatas=[
+                {
+                    "start_time": int(start_time),
+                    "end_time": int(end_time),
+                    "video_path": video_path,
+                    "date": date,
+                }
+            ]
+            * len(sentences),
+        )  # 复制 metadata 以匹配每个子句
 
         collection = self.database_t.collection
         collection.add(**add_element)
 
-        print(
-            f'Database_t: Segment {id} processed and added to the collection.')
+        print(f"Database_t: Segment {id} processed and added to the collection.")
         print(
             f"Current collection size: {len(collection.get(include=['documents'])['ids'])}"
         )
-        print(f'Time cost: {time.time()-time_start:.2f}s')
+        print(f"Time cost: {time.time()-time_start:.2f}s")
 
         # 返回处理后的结果
-        return [{
-            'id': new_id,
-            'caption': sentence
-        } for new_id, sentence in zip(new_ids, sentences)]
+        return [
+            {"id": new_id, "caption": sentence}
+            for new_id, sentence in zip(new_ids, sentences)
+        ]
 
     def rag_CLIP_text(self, human_query, n_results=2):
         # similarity between user_query and captions
-        results = self.database_t.collection.query(query_texts=[human_query],
-                                                   n_results=n_results)
+        results = self.database_t.collection.query(
+            query_texts=[human_query], n_results=n_results
+        )
 
-        return results['ids'][0]
+        return results["ids"][0]
 
     def create_database_from_query(
         self,
@@ -417,113 +431,118 @@ class RagAgent(ABC):
         human_query,
         caption_args,
         system_message=None,
-        rag='rag_CLIP_t',
+        rag="rag_CLIP_t",
     ):
-
         video_time = [
             {
-                'date': re.search(r'DAY\d', path).group(0),  # 提取日期，如DAY1, DAY2
-                'time': re.search(r'_(\d{8})\.mp4',
-                                  path).group(1)  # 提取时间，格式为8位数字
-            } for path in video_paths
-            if re.search(r'DAY\d', path) and re.search(r'_(\d{8})\.mp4', path)
+                "date": re.search(r"DAY\d", path).group(0),  # 提取日期，如DAY1, DAY2
+                "time": re.search(r"_(\d{8})\.mp4", path).group(1),  # 提取时间，格式为8位数字
+            }
+            for path in video_paths
+            if re.search(r"DAY\d", path) and re.search(r"_(\d{8})\.mp4", path)
         ]
-       
 
-        sorted_video_time = sorted(video_time,
-                                   key=lambda x: (x['date'], x['time']))
+        sorted_video_time = sorted(video_time, key=lambda x: (x["date"], x["time"]))
         query_time = []
         seen_times = set()
         for data in query_json:
-            date = data['query_time']['date']
-            time = data['query_time']['time']
+            date = data["query_time"]["date"]
+            time = data["query_time"]["time"]
             if (date, time) not in seen_times:
-                query_time.append({'date': date, 'time': time})
+                query_time.append({"date": date, "time": time})
                 seen_times.add((date, time))
-        sorted_query_time = sorted(query_time,
-                                   key=lambda x: (x['date'], x['time']))
+        sorted_query_time = sorted(query_time, key=lambda x: (x["date"], x["time"]))
 
         # 合并并再次按日期和时间排序
-        all_times = sorted(sorted_video_time + sorted_query_time,
-                           key=lambda x: (x['date'], x['time']))
-        
+        all_times = sorted(
+            sorted_video_time + sorted_query_time, key=lambda x: (x["date"], x["time"])
+        )
+
         sorted_video_time = transform_timedict(sorted_video_time)
         all_times = transform_timedict(all_times)
         video_mapping = self.get_video_mapping(sorted_video_time, all_times)
         samples = parse_video_map(video_mapping)
 
-        if rag in ['rag_CLIP_t']:
-            ids = self.database_t.collection.get()['ids']
-            existing_video_ids = set(id.rsplit('_', 1)[0] for id in ids)
-            for id, sample in tqdm(enumerate(samples),
-                                   total=len(samples),
-                                   desc='Generating caption'):
-                video_id = sample['video_id']
+        if rag in ["rag_CLIP_t"]:
+            ids = self.database_t.collection.get()["ids"]
+            existing_video_ids = set(id.rsplit("_", 1)[0] for id in ids)
+            for id, sample in tqdm(
+                enumerate(samples), total=len(samples), desc="Generating caption"
+            ):
+                video_id = sample["video_id"]
                 if video_id in existing_video_ids:
-                    print(f'Already in database: {video_id}, skip.')
+                    print(f"Already in database: {video_id}, skip.")
                     continue
 
-                self.add_to_db_t(video_id, sample, caption_args, human_query,
-                                 system_message)
-
+                self.add_to_db_t(
+                    video_id, sample, caption_args, human_query, system_message
+                )
 
     def create_database_from_json(self, json_path):
         """Creates a database from a JSON file containing caption data.c
-        
+
         Args:
             json_path (str): Path to the JSON file
         """
         # Load JSON data
-        with open(json_path, 'r', encoding='utf-8') as f:
+        with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        
+
         print(f"Loaded {len(data)} entries from {json_path}")
-        
+
         # Process each entry
-        for idx, entry in tqdm(enumerate(data), total=len(data), desc="Processing entries"):
+        for idx, entry in tqdm(
+            enumerate(data), total=len(data), desc="Processing entries"
+        ):
             try:
                 # Extract metadata
-                date_match = re.search(r'DAY(\d+)', entry['date'])
+                date_match = re.search(r"DAY(\d+)", entry["date"])
                 int_date = int(date_match.group(1)) if date_match else 0
-                date = entry['date']
+                date = entry["date"]
                 video_name = f'{date}_{self.name}_{entry["start_time"]}.mp4'
-                video_path = entry.get('video_path', os.path.join(self.video_base_dir, self.name, date, video_name))
+                video_path = entry.get(
+                    "video_path",
+                    os.path.join(self.video_base_dir, self.name, date, video_name),
+                )
                 # Handle ellipsis and proper sentence splitting
-            
+
                 sentences = [
-                    sentence.strip() for sentence in re.split(r'(?<=[.!?])\s*', entry['text'])
+                    sentence.strip()
+                    for sentence in re.split(r"(?<=[.!?])\s*", entry["text"])
                     if sentence.strip()
                 ]
                 # Create entry ID in format DAYX_STARTTIME_ENDTIME
                 entry_id = f"{entry['date']}-{entry['start_time']}-{entry['end_time']}"
-                new_ids = [f'{entry_id}_{i}' for i in range(len(sentences))]
-                
+                new_ids = [f"{entry_id}_{i}" for i in range(len(sentences))]
+
                 # Check if any of the IDs already exist
-                existing_docs = self.database_t.collection.get(ids=new_ids, include=['documents'])
-                if existing_docs['ids'] and any(existing_docs['documents']):
-                    print(f'IDs {entry_id} already exist with content, skipping.')
+                existing_docs = self.database_t.collection.get(
+                    ids=new_ids, include=["documents"]
+                )
+                if existing_docs["ids"] and any(existing_docs["documents"]):
+                    print(f"IDs {entry_id} already exist with content, skipping.")
                     continue
-                    
+
                 # Create metadata
                 metadata = {
-                    'start_time': int(entry['start_time']),
-                    'end_time': int(entry['end_time']),
-                    'date': int_date,
-                    'video_path': video_path
+                    "start_time": int(entry["start_time"]),
+                    "end_time": int(entry["end_time"]),
+                    "date": int_date,
+                    "video_path": video_path,
                 }
-                
+
                 # Get embeddings using database's embedding function
-            
+
                 embeddings = self.database_t.embedding_function(sentences)
                 # Create add_element dictionary
-               
+
                 add_element = {
-                    'ids': new_ids,
-                    'documents': sentences,
-                    'metadatas': [metadata] * len(sentences),
-                    'embeddings': embeddings
+                    "ids": new_ids,
+                    "documents": sentences,
+                    "metadatas": [metadata] * len(sentences),
+                    "embeddings": embeddings,
                 }
-                
+
                 # Add to collection
                 self.database_t.collection.add(**add_element)
                 if idx % 100 == 0:  # Print progress every 100 entries
@@ -533,27 +552,30 @@ class RagAgent(ABC):
             except Exception as e:
                 print(f"Error processing entry {idx}: {e}")
                 continue
-        
+
         print("Database creation completed!")
-        print(f"Final collection size: {len(self.database_t.collection.get(include=['documents'])['ids'])}")
-        
+        print(
+            f"Final collection size: {len(self.database_t.collection.get(include=['documents'])['ids'])}"
+        )
+
     def generate_event_data(self, q_date, q_start_time, q_end_time):
         docs_to_use = self.database_t.collection.get(
             where={
-                '$and': [
-                    {'date': {'$eq': q_date}},
-                    {'start_time': {'$gte': q_start_time}},
-                    {'end_time': {'$lte': q_end_time}}
+                "$and": [
+                    {"date": {"$eq": q_date}},
+                    {"start_time": {"$gte": q_start_time}},
+                    {"end_time": {"$lte": q_end_time}},
                 ]
             },
-            include=['documents']
+            include=["documents"],
         )
-        
-        context = docs_to_use['documents']
-        
-        
-        response = call_gpt4(f"You will be provided with some descriptions. Merge events into one single event based on these descriptions. Do not include uncertain information, speculation, or divergent content. Do not describe the atmosphere or emotions. Dismiss those provided content that are abstract or ambiguous. If the descriptions mention names of people who interacted with 'me', make sure to retain this information. Directly provide the summarized main events without adding any additional remarks or explanations. All descriptions: {context}")
-        
+
+        context = docs_to_use["documents"]
+
+        response = call_gpt4(
+            f"You will be provided with some descriptions. Merge events into one single event based on these descriptions. Do not include uncertain information, speculation, or divergent content. Do not describe the atmosphere or emotions. Dismiss those provided content that are abstract or ambiguous. If the descriptions mention names of people who interacted with 'me', make sure to retain this information. Directly provide the summarized main events without adding any additional remarks or explanations. All descriptions: {context}"
+        )
+
         if response:
             print(f"Generate unaligned event diary.")
         else:
@@ -562,87 +584,95 @@ class RagAgent(ABC):
 
         return response
 
-
-    def filter_event_data(self, date, time, hour_docs,date_docs):
+    def filter_event_data(self, date, time, hour_docs, date_docs):
         date = int(date[-1])
         time = int(time)
-        date_data=[
-            entry for entry in date_docs
-            if entry['date'] < date
+        date_data = [entry for entry in date_docs if entry["date"] < date]
+        hour_data = [
+            entry
+            for entry in hour_docs
+            if entry["date"] == date and entry["end_time"] <= time
         ]
-        hour_data=[
-            entry for entry in hour_docs
-            if entry['date']== date and entry['end_time'] <= time
-        ]
-        if hour_data==[]:
+        if hour_data == []:
             last_event = {}
-            last_event["generated_text"] = self.generate_event_data(date, hour_docs[0]['start_time'], time)
+            last_event["generated_text"] = self.generate_event_data(
+                date, hour_docs[0]["start_time"], time
+            )
             last_event["date"] = date
-            last_event["start_time"] = hour_docs[0]['start_time']
+            last_event["start_time"] = hour_docs[0]["start_time"]
             last_event["end_time"] = time
             hour_data.append(last_event)
-        
+
         elif hour_data[-1]["end_time"] < time:
-            
             last_event = {}
-            last_event["generated_text"] = self.generate_event_data(date, hour_data[-1]["end_time"], time)
+            last_event["generated_text"] = self.generate_event_data(
+                date, hour_data[-1]["end_time"], time
+            )
             last_event["date"] = date
             last_event["start_time"] = hour_data[-1]["end_time"]
             last_event["end_time"] = time
             hour_data.append(last_event)
 
-        all_date_data=date_data+hour_data
-        return all_date_data,hour_data
+        all_date_data = date_data + hour_data
+        return all_date_data, hour_data
+
     def process_query_results(self, raw_results):
         """
         Process raw query results into a list of individual results with specific fields.
-        
+
         Args:
             raw_results (dict): Raw results dictionary from the database query
-            
+
         Returns:
             list: List of dictionaries containing processed results
         """
         processed_results = []
-        
+
         # Check if we have results
-        if not raw_results['ids'] or not raw_results['ids'][0]:
+        if not raw_results["ids"] or not raw_results["ids"][0]:
             return processed_results
-        
+
         # Get the first (and usually only) batch of results
-        ids = raw_results['ids'][0]
-        documents = raw_results['documents'][0]
-        metadatas = raw_results['metadatas'][0]
-        distances = raw_results['distances'][0]
-        
+        ids = raw_results["ids"][0]
+        documents = raw_results["documents"][0]
+        metadatas = raw_results["metadatas"][0]
+        distances = raw_results["distances"][0]
+
         # Combine results into a list of tuples for sorting
         combined_results = [
-            (ids[i], documents[i], metadatas[i]['date'], metadatas[i]['end_time'], distances[i])
+            (
+                ids[i],
+                documents[i],
+                metadatas[i]["date"],
+                metadatas[i]["end_time"],
+                distances[i],
+            )
             for i in range(len(ids))
         ]
-        
+
         # Sort results first by date and then by end_time
-        combined_results.sort(key=lambda x: (x[2], x[3]))  # Sort by date and then by end_timeS
+        combined_results.sort(
+            key=lambda x: (x[2], x[3])
+        )  # Sort by date and then by end_timeS
         # Process each sorted result
         for id, document, date, end_time, distance in combined_results:
-            results=self.database_t.get_caption(id=id,n_result=1)
-            expand_documents=results['documents']
+            results = self.database_t.get_caption(id=id, n_result=1)
+            expand_documents = results["documents"]
             processed_result = {
-                'id': id,
-                'document': expand_documents,
-                'date': date,
-                'end_time': end_time,
-                'distance': distance
+                "id": id,
+                "document": expand_documents,
+                "date": date,
+                "end_time": end_time,
+                "distance": distance,
             }
             processed_results.append(processed_result)
-    
+
         return processed_results
-    def get_range(self, question, date, time, hour_docs,date_docs):
-         
-        int_date=int(date[-1])
-        all_date, hour = self.filter_event_data(date, time, hour_docs,date_docs)
-            
-        
+
+    def get_range(self, question, date, time, hour_docs, date_docs):
+        int_date = int(date[-1])
+        all_date, hour = self.filter_event_data(date, time, hour_docs, date_docs)
+
         system_message_l1 = f"""You will be provided with a JSON dataset containing summaries of events spanning multiple days.
 
         Given the question: **{question}**, your task is to determine the most relevant date from the dataset that can be used to answer the question.
@@ -659,25 +689,24 @@ class RagAgent(ABC):
         - Example: [3] for DAY3.
         - **Do not** include any additional text, explanations, or formatting beyond the required output.
         """
-        
+
         prompt_l1 = f"all json {all_date}"
-        response_l1 = call_gpt4(prompt_l1, system_message=system_message_l1, temperature=0.8)
+        response_l1 = call_gpt4(
+            prompt_l1, system_message=system_message_l1, temperature=0.8
+        )
         print(response_l1)
         # Extract number from [X] format
-        match = re.match(r'\[(\d+)\]', response_l1.strip())
+        match = re.match(r"\[(\d+)\]", response_l1.strip())
         if match:
-            target_date=int(match.group(1))
+            target_date = int(match.group(1))
         else:
-            target_date=int_date
+            target_date = int_date
         print(target_date)
-        if target_date==int_date:
-            hours_data=hour
+        if target_date == int_date:
+            hours_data = hour
         else:
-            hours_data=[
-            entry for entry in hour_docs
-            if entry['date']== target_date
-        ]
-        
+            hours_data = [entry for entry in hour_docs if entry["date"] == target_date]
+
         system_message_l2 = f"""I will provide you with event descriptions, including their start time and end time in the format HHMMSSFF.
         For the question "{question}", determine the most appropriate time range that can be used to answer the question.
         The question time is {date}, {time}.
@@ -713,22 +742,33 @@ class RagAgent(ABC):
         [11000000]
         [14000000]
         """
-        prompt_l2=f"all description: {hours_data}"
-        response_l2 = call_gpt4(prompt_l2, system_message=system_message_l2, temperature=0.8)
-        start_time_match = re.search(r'\[(\d{8})\]', response_l2.split('\n')[0])
-        end_time_match = re.search(r'\[(\d{8})\]', response_l2.split('\n')[1])
-        
-        start_time = int(start_time_match.group(1)) if start_time_match else hours_data[0]['start_time']
-        end_time = int(end_time_match.group(1)) if end_time_match else hours_data[-1]['end_time']
+        prompt_l2 = f"all description: {hours_data}"
+        response_l2 = call_gpt4(
+            prompt_l2, system_message=system_message_l2, temperature=0.8
+        )
+        start_time_match = re.search(r"\[(\d{8})\]", response_l2.split("\n")[0])
+        end_time_match = re.search(r"\[(\d{8})\]", response_l2.split("\n")[1])
+
+        start_time = (
+            int(start_time_match.group(1))
+            if start_time_match
+            else hours_data[0]["start_time"]
+        )
+        end_time = (
+            int(end_time_match.group(1))
+            if end_time_match
+            else hours_data[-1]["end_time"]
+        )
         print(start_time)
         print(end_time)
-        return target_date,start_time,end_time
-    def query(self, query_dict, event_data,date_docs):
-        question,query,formatted_options,time, date=self.parse_query(query_dict)
+        return target_date, start_time, end_time
+
+    def query(self, query_dict, event_data, date_docs):
+        question, query, formatted_options, time, date = self.parse_query(query_dict)
         if "last time" in question.lower() or "the last" in question.lower():
             print("handle the last time type question")
 
-            system_message = '''
+            system_message = """
                 You are an intelligent assistant designed to:
                 1. Extract concise and relevant keywords from user-provided questions.
                 2. Determine the search time range based on the options provided (if applicable).
@@ -809,14 +849,16 @@ class RagAgent(ABC):
                 Output:
                 Keywords: [use microwave]
                 Search Time Range: [DAY3 11550000]
-                '''
+                """
             prompt = f"Question: {question} \nOptions: \n{formatted_options}\nQuestion Time: {date} {time}\nOutput:"
-            
-            keyword_raw = call_gpt4(prompt=prompt, system_message=system_message,temperature=0.1)
+
+            keyword_raw = call_gpt4(
+                prompt=prompt, system_message=system_message, temperature=0.1
+            )
             # Extract keywords and time range using regex
             keyword_pattern = r"Keywords:\s*\[([^\]]+)\]"
             time_range_pattern = r"Search Time Range:\s*\[([^\]]+)\]"
-            
+
             # Extract keywords
             keyword_match = re.search(keyword_pattern, keyword_raw)
             keywords = keyword_match.group(1).strip() if keyword_match else question
@@ -826,105 +868,112 @@ class RagAgent(ABC):
                 search_time = time_range_match.group(1).strip()
                 # Split into day and time if the format is "DAYX XXXXXXXX"
                 search_time_parts = search_time.split()
-                search_date = int(search_time_parts[0].replace('DAY', '')) if len(search_time_parts) > 1 else int(date[-1])
-                search_timestamp = int(search_time_parts[1]) if len(search_time_parts) > 1 else int(search_time)
+                search_date = (
+                    int(search_time_parts[0].replace("DAY", ""))
+                    if len(search_time_parts) > 1
+                    else int(date[-1])
+                )
+                search_timestamp = (
+                    int(search_time_parts[1])
+                    if len(search_time_parts) > 1
+                    else int(search_time)
+                )
             else:
                 search_date = int(date[-1])
                 search_timestamp = int(time)
             print(keywords)
             print(search_timestamp)
-            raw_results=self.database_t.custom_query(
+            raw_results = self.database_t.custom_query(
                 query_texts=[keywords],
                 n_results=50,
-                where = {
+                where={
                     "$or": [
                         {"date": {"$lt": search_date}},
                         {
                             "$and": [
                                 {"end_time": {"$lte": search_timestamp}},
-                                {"date": {"$eq": search_date}}
+                                {"date": {"$eq": search_date}},
                             ]
-                        }
+                        },
                     ]
                 },
-                filter_first=False
+                filter_first=False,
             )
-            all_query_results=self.process_query_results(raw_results)
+            all_query_results = self.process_query_results(raw_results)
             print(all_query_results)
-            filter_id=get_ids(question=question,results=all_query_results)
-            results=self.database_t.get_caption(id=filter_id,n_result=1)
-            best_result=results['item']
+            filter_id = get_ids(question=question, results=all_query_results)
+            results = self.database_t.get_caption(id=filter_id, n_result=1)
+            best_result = results["item"]
             # last_result=get_max_endtime_result(raw_results)
-            query_result=[
-            {
-                "query_range": None,
-                "docs": best_result,
-                "start_time": None,
-                "end_time": None,
-                "date": None,
-                "extract_keywords":keywords,
-                "filter_id":filter_id,
-                "search_range": search_time
-            }]
-            
-        else:
-            date,start_time,end_time= self.get_range(question, date, time, event_data,date_docs)
-            docs_in_range = self.database_t.custom_query(
-                        query_texts=[query],
-                        n_results=3,
-                        where={
-                        '$and': [
-                            {'start_time': {'$gte': start_time}},
-                            {'end_time': {'$lte': end_time}}, 
-                            {'date': {'$eq': date}}
-                        ]
-                    },
-                    filter_first=True
-                )
-            query_result=[
+            query_result = [
                 {
-                    "query_range": [date,start_time,end_time],
+                    "query_range": None,
+                    "docs": best_result,
+                    "start_time": None,
+                    "end_time": None,
+                    "date": None,
+                    "extract_keywords": keywords,
+                    "filter_id": filter_id,
+                    "search_range": search_time,
+                }
+            ]
+
+        else:
+            date, start_time, end_time = self.get_range(
+                question, date, time, event_data, date_docs
+            )
+            docs_in_range = self.database_t.custom_query(
+                query_texts=[query],
+                n_results=3,
+                where={
+                    "$and": [
+                        {"start_time": {"$gte": start_time}},
+                        {"end_time": {"$lte": end_time}},
+                        {"date": {"$eq": date}},
+                    ]
+                },
+                filter_first=True,
+            )
+            query_result = [
+                {
+                    "query_range": [date, start_time, end_time],
                     "docs": docs_in_range,
                     "start_time": start_time,
                     "end_time": end_time,
                     "date": date,
                 }
-
             ]
-            
-        return query_result,question,formatted_options
 
-    def single_query(self, query_dict, event_data,date_event_data):
-        
-        query_result,question,formatted_options = self.query(query_dict ,event_data,date_event_data)
         return query_result, question, formatted_options
-    
-    def query_all(self,
-                  query_data,
-                  event_data,
-                  date_event_data
-                  ):
+
+    def single_query(self, query_dict, event_data, date_event_data):
+        query_result, question, formatted_options = self.query(
+            query_dict, event_data, date_event_data
+        )
+        return query_result, question, formatted_options
+
+    def query_all(self, query_data, event_data, date_event_data):
         all_query_results = []
 
         for query_dict in tqdm(query_data, desc="Processing queries"):
             try:
-                
-                query_result, question, formatted_options = self.single_query(query_dict, event_data, date_event_data)
-                
-                all_query_results.append({
-                    'metadata': query_dict,
-                    'result': query_result,
-                    'question': question,
-                    'formatted_options': formatted_options
-                })
+                query_result, question, formatted_options = self.single_query(
+                    query_dict, event_data, date_event_data
+                )
+
+                all_query_results.append(
+                    {
+                        "metadata": query_dict,
+                        "result": query_result,
+                        "question": question,
+                        "formatted_options": formatted_options,
+                    }
+                )
             except Exception as e:
-                print(f'error {e}')
+                print(f"error {e}")
                 continue
 
-
         return all_query_results
-
-
 
     def parse_query(self, data_dict):
         """
@@ -937,72 +986,73 @@ class RagAgent(ABC):
             str: A formatted prompt for the model.
         """
         # Extract values from the dictionary
-        query_time = data_dict.get('query_time', None)
+        query_time = data_dict.get("query_time", None)
 
-        date = query_time.get('date', 'DAY6')
-        time = query_time.get('time', '18000000')
-        question = data_dict.get('question', 'UNKNOWN_QUERY')
-        query = data_dict.get('keywords', 'UNKNOWN_QUERY')
-        print("get keywords",query)
+        date = query_time.get("date", "DAY6")
+        time = query_time.get("time", "18000000")
+        question = data_dict.get("question", "UNKNOWN_QUERY")
+        query = data_dict.get("keywords", "UNKNOWN_QUERY")
+        print("get keywords", query)
         # Extract choices from the dictionary
         options = []
-        for letter in ['a', 'b', 'c', 'd']:
-            choice_key = f'choice_{letter}'
+        for letter in ["a", "b", "c", "d"]:
+            choice_key = f"choice_{letter}"
             if choice_key in data_dict:
-                options.append(f'{letter.upper()}. {data_dict[choice_key]}')
+                options.append(f"{letter.upper()}. {data_dict[choice_key]}")
 
         # Format the options
-        formatted_options = '\n'.join(options)
-        
-       
-        return  question,query,formatted_options,time, date
+        formatted_options = "\n".join(options)
+
+        return question, query, formatted_options, time, date
 
     # CoT filter get evidence
-    def extract_evidence(self,question, query_range, modality='video'): 
+    def extract_evidence(self, question, query_range, modality="video"):
         def parse_evidence_output(response):
             """
             Parse the LLM output and return a dictionary with the appropriate format.
-            
+
             Parameters:
             - response (str): The response from the LLM.
-            
+
             Returns:
             - dict: A dictionary with the extracted status and information (if applicable).
             """
             if "I can't provide evidence." in response:
                 return {"status": False}
-            
+
             match = re.search(r"I can provide evidence\. Evidence: (.+)", response)
             if match:
                 return {"status": True, "information": match.group(1).strip()}
-            
+
             return {"status": False}
 
-        
         doc_ids = []
         evidence = []
-        caption_results={}
+        caption_results = {}
         single_range = query_range[0]["docs"]
         for index, id in enumerate(single_range["ids"]):
-            video_start_time = single_range["metadatas"][index]["video_path"].split('.')[0].split('_')[-1]
+            video_start_time = (
+                single_range["metadatas"][index]["video_path"]
+                .split(".")[0]
+                .split("_")[-1]
+            )
             start_time = single_range["metadatas"][index]["start_time"]
             end_time = single_range["metadatas"][index]["end_time"]
             video_path = single_range["metadatas"][index]["video_path"]
-            video_date=single_range["metadatas"][index]["date"]
+            video_date = single_range["metadatas"][index]["date"]
 
-            all_result=self.database_t.get_caption(id=id,n_result=10)
-            
-            full_caption = " ".join(all_result['documents'])
-            video_caption=f'''
+            all_result = self.database_t.get_caption(id=id, n_result=10)
+
+            full_caption = " ".join(all_result["documents"])
+            video_caption = f"""
             Video Time: It is DAY{video_date}, {start_time} to {end_time}.
             Video Conetent: {full_caption}
-            '''
-            caption_key=f"video{index+1}"
-            caption_results[caption_key]=video_caption
+            """
+            caption_key = f"video{index+1}"
+            caption_results[caption_key] = video_caption
             doc_ids.append(single_range["ids"][index])
-            if modality == 'video':
-                
-                video_prompt=f"""
+            if modality == "video":
+                video_prompt = f"""
                     Please analyze the provided video and help me determine if the provided information is helpful for answering the given question: {question}
 
                     - If the video segment is relevant, extract the relevant information from the video segment that helps answer the question. Return the response in the following JSON format:
@@ -1013,12 +1063,18 @@ class RagAgent(ABC):
 
                         \"I can't provide evidence.\"
                 """
-        
-                response = self.model.inference_video(video_path, int(video_start_time), start_time, end_time, video_prompt)
+
+                response = self.model.inference_video(
+                    video_path,
+                    int(video_start_time),
+                    start_time,
+                    end_time,
+                    video_prompt,
+                )
                 print(response)
                 evidence.append(parse_evidence_output(response))
-            elif modality == 'text':
-                text_prompt=f"""
+            elif modality == "text":
+                text_prompt = f"""
 
                 video caption: {video_caption}
                 
@@ -1044,25 +1100,22 @@ class RagAgent(ABC):
                     "I can't provide evidence."
                 """
 
-
                 response = call_gpt4(text_prompt)
                 print(response)
                 evidence.append(parse_evidence_output(response))
             else:
                 raise ValueError(f"Invalid modality: {modality}")
-        
+
         evidence_cards = []
         for index, id in enumerate(doc_ids):
-
             if evidence[index]["status"]:
-
-                evidence_card = {"time" : id}
+                evidence_card = {"time": id}
 
                 if evidence[index]["status"]:
                     evidence_card["evidence_info"] = evidence[index]["information"]
                 else:
                     evidence_card["evidence_info"] = "No evidence information."
-    
+
                 evidence_cards.append(evidence_card)
 
-        return evidence_cards,caption_results
+        return evidence_cards, caption_results

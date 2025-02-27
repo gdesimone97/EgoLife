@@ -1,55 +1,69 @@
-import torch
-from transformers import AutoTokenizer, AutoModel
-from egorag.models.base import BaseQueryModel
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 import decord
+import numpy as np
+import torch
 from decord import VideoReader, cpu
+from egorag.models.base import BaseQueryModel
 from egorag.utils.util import time_to_frame_idx
 from torchvision import transforms
-import numpy as np
+from transformers import AutoModel, AutoTokenizer
+
 decord.bridge.set_bridge("torch")
 
 mean = (0.485, 0.456, 0.406)
 std = (0.229, 0.224, 0.225)
 
-transform = transforms.Compose([
-    transforms.Lambda(lambda x: x.float().div(255.0)),
-    transforms.Resize(224, interpolation=transforms.InterpolationMode.BICUBIC),
-    transforms.CenterCrop(224),
-    transforms.Normalize(mean, std)
-])
+transform = transforms.Compose(
+    [
+        transforms.Lambda(lambda x: x.float().div(255.0)),
+        transforms.Resize(224, interpolation=transforms.InterpolationMode.BICUBIC),
+        transforms.CenterCrop(224),
+        transforms.Normalize(mean, std),
+    ]
+)
+
 
 class InternVideo2(BaseQueryModel):
     def __init__(self, pretrained):
         self.model = AutoModel.from_pretrained(
-            pretrained,
-            torch_dtype=torch.bfloat16,
-            trust_remote_code=True
+            pretrained, torch_dtype=torch.bfloat16, trust_remote_code=True
         ).cuda()
         self.tokenizer = AutoTokenizer.from_pretrained(
-            pretrained,
-            trust_remote_code=True, 
-            use_fast=False
+            pretrained, trust_remote_code=True, use_fast=False
         )
-    
 
-    def inference_video(self, video_path, video_start_time, start_time, end_time, human_query, system_message=None):
-
-        processed_data = self.process_video(video_path, video_start_time, start_time, end_time)
-        video_tensor = processed_data['processed_video']
-        frame_idx = processed_data['frame_idx']
+    def inference_video(
+        self,
+        video_path,
+        video_start_time,
+        start_time,
+        end_time,
+        human_query,
+        system_message=None,
+    ):
+        processed_data = self.process_video(
+            video_path, video_start_time, start_time, end_time
+        )
+        video_tensor = processed_data["processed_video"]
+        frame_idx = processed_data["frame_idx"]
         video_tensor = video_tensor.to(self.model.device)
         chat_history = []
 
         if system_message is None:
-            system_message = ''
+            system_message = ""
 
-        response, chat_history = self.model.chat(self.tokenizer, system_message, human_query, 
-                                                 media_type='video', media_tensor=video_tensor,
-                                                 chat_history=chat_history, return_history=True,
-                                                 generation_config={'do_sample':False})    
+        response, chat_history = self.model.chat(
+            self.tokenizer,
+            system_message,
+            human_query,
+            media_type="video",
+            media_tensor=video_tensor,
+            chat_history=chat_history,
+            return_history=True,
+            generation_config={"do_sample": False},
+        )
         return response
-
 
     def process_video(self, video_path, video_start_time, start_time, end_time, fps=1):
         vr = VideoReader(video_path, ctx=cpu(0), num_threads=1)
@@ -62,19 +76,28 @@ class InternVideo2(BaseQueryModel):
 
         if end_frame - start_frame > total_frame_num:
             end_frame = total_frame_num + start_frame
-        
+
         start_frame -= video_start_frame
         end_frame -= video_start_frame
         start_frame = max(0, int(round(start_frame)))  # 确保不会小于0
-        end_frame = min(total_frame_num, int(round(end_frame))) # 确保不会超过总帧数
+        end_frame = min(total_frame_num, int(round(end_frame)))  # 确保不会超过总帧数
         start_frame = int(round(start_frame))
         end_frame = int(round(end_frame))
 
-        frame_idx = [i for i in range(start_frame, end_frame) if (i - start_frame) % int(video_fps / fps) == 0]
+        frame_idx = [
+            i
+            for i in range(start_frame, end_frame)
+            if (i - start_frame) % int(video_fps / fps) == 0
+        ]
 
-        #internvideo2模型中，输入是tensor
+        # internvideo2模型中，输入是tensor
         frames = vr.get_batch(frame_idx)
         frames = frames.permute(0, 3, 1, 2)
         frames = transform(frames)
 
-        return {'processed_video': frames, 'frame_idx': frame_idx, 'start_time': start_time, 'end_time': end_time}
+        return {
+            "processed_video": frames,
+            "frame_idx": frame_idx,
+            "start_time": start_time,
+            "end_time": end_time,
+        }
