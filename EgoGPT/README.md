@@ -43,9 +43,9 @@ pip install flash-attn --no-build-isolation
 
 ### Download & Setup
 
-1. Download EgoGPT-7b from 🤗[EgoGPT](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342) and audio encoder from [Audio Encoder](https://huggingface.co/EgoGPT/speech_encoder).
+1. Download EgoGPT-7b from 🤗[EgoGPT](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342) and audio encoder from [Audio Encoder](https://huggingface.co/lmms-lab/EgoGPT-7b-EgoIT-EgoLife/tree/main/speech_encoder).
 
-2. Download EgoIT dataset from 🤗[Huggingface](https://huggingface.co/datasets/EgoGPT/EgoIT_Video) and construct the directory as follows:
+2. Download EgoIT dataset from 🤗[Huggingface](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342) and construct the directory as follows:
 ```python
 from huggingface_hub import snapshot_download
 local_path = snapshot_download(
@@ -72,7 +72,18 @@ datasets/ # The directory for json
 ├── EgoIT.json # The concatenated json for training
 ```
 
-3. If you want to train EgoGPT from scratch(e.g from LLaVA-Onevision), please download the audio projector from [here](https://huggingface.co/lmms-lab/EgoGPT-7b-EgoIT-EgoLife/tree/main/speech_projector).
+3. If you want to train EgoGPT from scratch(e.g from LLaVA-Onevision), please download the audio projector from [here](https://huggingface.co/lmms-lab/EgoGPT-7b-EgoIT-EgoLife/tree/main/speech_projector) or via:
+
+```python
+from huggingface_hub import hf_hub_download
+
+hf_hub_download(
+    repo_id="lmms-lab/EgoIT-99K",
+    filename="speech_projector/7B/speech_projector_7b.bin",
+    local_dir="./",
+    repo_type="model",
+)
+```
 
 ### Inference
 
