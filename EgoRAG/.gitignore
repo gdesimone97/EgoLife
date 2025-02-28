@@ -171,4 +171,3 @@ data
 speech_projector
 settings
 *.txt
-__pycache__/
