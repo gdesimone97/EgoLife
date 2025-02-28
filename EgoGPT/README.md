@@ -121,11 +121,11 @@ Our code is released under the Apache-2.0 License.
 
 If our work is useful for you, please cite as:
 
-```
-@article{EgoLife,
+```bibtex
+@inproceedings{yang2025egolife,
   title={EgoLife: Towards Egocentric Life Assistant},
-  author={The EgoLife Team},
-  journal={arXiv preprint arXiv:XXXX.XXXXX},
-  year={2025}
+  author={Yang, Jingkang and Liu, Shuai and Guo, Hongming and Dong, Yuhao and Zhang, Xiamengwei and Zhang, Sicheng and Wang, Pengyun and Zhou, Zitang and Xie, Binzhu and Wang, Ziyue and Ouyang, Bei and Lin, Zhengyu and Cominelli, Marco and Cai, Zhongang and Zhang, Yuanhan and Zhang, Peiyuan and Hong, Fangzhou and Widmer, Joerg and Gringoli, Francesco and Yang, Lei and Li, Bo and Liu, Ziwei},
+  booktitle={The IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  year={2025},
 }
 ```
