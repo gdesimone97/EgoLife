@@ -72,7 +72,7 @@ datasets/ # The directory for json
 ├── EgoIT.json # The concatenated json for training
 ```
 
-3. If you want to train EgoGPT from scratch(e.g from LLaVA-Onevision), please download the audio project from [here](https://github.com/egolife-ntu/EgoLife-Audio).
+3. If you want to train EgoGPT from scratch(e.g from LLaVA-Onevision), please download the audio projector from [here](https://huggingface.co/lmms-lab/EgoGPT-7b-EgoIT-EgoLife/tree/main/speech_projector).
 
 ### Inference
 
