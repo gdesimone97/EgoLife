@@ -68,8 +68,8 @@ class LLaVA(BaseQueryModel):
 
         start_frame -= video_start_frame
         end_frame -= video_start_frame
-        start_frame = max(0, int(round(start_frame)))  # 确保不会小于0
-        end_frame = min(total_frame_num, int(round(end_frame)))  # 确保不会超过总帧数
+        start_frame = max(0, int(round(start_frame)))  # Ensure it is not less than 0
+        end_frame = min(total_frame_num, int(round(end_frame)))  # Ensure it does not exceed total frames
         start_frame = int(round(start_frame))
         end_frame = int(round(end_frame))
 
@@ -94,7 +94,6 @@ class LLaVA(BaseQueryModel):
         processed_data = self.process_video(
             video_path, video_start_time, start_time, end_time
         )
-        # video = process_images(processed_data, self.image_processor, self.model.config)
 
         frames = (
             self.image_processor.preprocess(processed_data, return_tensors="pt")[
@@ -106,9 +105,6 @@ class LLaVA(BaseQueryModel):
         video = [frames]
 
         human_query = f"{DEFAULT_IMAGE_TOKEN}\n{human_query}"
-        # print(human_query)
-        # print(frames.shape)
-        # conv_template = "qwen_1_5" # Make sure you use correct chat template for different models
 
         conv = copy.deepcopy(conv_templates[self.conv_template])
         conv.append_message(conv.roles[0], human_query)
@@ -141,7 +137,5 @@ class LLaVA(BaseQueryModel):
                 temperature=0,
                 max_new_tokens=4096,
             )
-        # print(text_outputs)
         text_outputs = self.tokenizer.batch_decode(cont, skip_special_tokens=True)
-        # print('START.....'+text_outputs[0]+'.....END')
         return text_outputs[0]

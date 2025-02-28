@@ -68,8 +68,8 @@ class LLaVA_Onevision(BaseQueryModel):
 
         start_frame -= video_start_frame
         end_frame -= video_start_frame
-        start_frame = max(0, int(round(start_frame)))  # 确保不会小于0
-        end_frame = min(total_frame_num, int(round(end_frame)))  # 确保不会超过总帧数
+        start_frame = max(0, int(round(start_frame)))  # Ensure it is not less than 0
+        end_frame = min(total_frame_num, int(round(end_frame)))  # Ensure it does not exceed total frames
         start_frame = int(round(start_frame))
         end_frame = int(round(end_frame))
 

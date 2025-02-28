@@ -40,11 +40,11 @@ warnings.filterwarnings("ignore")
 
 
 def split_text(text, keywords):
-    # 创建一个正则表达式模式，将所有关键词用 | 连接，并使用捕获组
+    # Create a regex pattern with all keywords joined by |
     pattern = "(" + "|".join(map(re.escape, keywords)) + ")"
-    # 使用 re.split 保留分隔符
+    # Use re.split to keep the delimiters
     parts = re.split(pattern, text)
-    # 去除空字符串
+    # Remove empty strings
     parts = [part for part in parts if part]
     return parts
 
@@ -53,7 +53,7 @@ def setup(rank, world_size):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12356"
 
-    # initialize the process group
+    # Initialize the process group
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
 
@@ -98,8 +98,8 @@ class EgoGPT(BaseQueryModel):
         # Adjust start_frame and end_frame based on video start time
         start_frame -= video_start_frame
         end_frame -= video_start_frame
-        start_frame = max(0, int(round(start_frame)))  # 确保不会小于0
-        end_frame = min(total_frame_num, int(round(end_frame)))  # 确保不会超过总帧数
+        start_frame = max(0, int(round(start_frame)))  # Ensure it is not less than 0
+        end_frame = min(total_frame_num, int(round(end_frame)))  # Ensure it does not exceed total frames
         start_frame = int(round(start_frame))
         end_frame = int(round(end_frame))
 

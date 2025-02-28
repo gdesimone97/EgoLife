@@ -20,8 +20,8 @@ class EgoGPTAPI(BaseQueryModel):
         payload = {
             "prompt": human_query,
             "video_path": video_path,
-            "max_frames_num": 32,  # 默认值
-            "fps": 1,  # 默认值
+            "max_frames_num": 32,  
+            "fps": 1, 
             "video_start_time": video_start_time,
             "start_time": start_time,
             "end_time": end_time,

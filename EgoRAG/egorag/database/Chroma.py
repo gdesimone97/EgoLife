@@ -65,16 +65,16 @@ class Chroma(ABC):
     def get_caption(self, id: str, n_result=0):
         def generate_id_range(id: str, n: int):
             try:
-                # 解析ID中的索引部分 (例如: DAY3_10000000_10003000_1 -> 1)
+                # Parse the index part of the ID (e.g., DAY3_10000000_10003000_1 -> 1)
                 parts = id.split("_")
-                base_id = "_".join(parts[:-1])  # 提取前面的部分，得到 "DAY3_10000000_10003000"
-                index = int(parts[-1])  # 提取最后的部分，得到索引
+                base_id = "_".join(parts[:-1])  # Extract the front part, get "DAY3_10000000_10003000"
+                index = int(parts[-1])  # Extract the last part, get the index
 
-                # 计算前后n句的范围，确保最小值为0
+                # Calculate the range of n sentences before and after, ensuring the minimum value is 0
                 start_index = max(0, index - n)
                 end_index = index + n
 
-                # 生成包含前后n句的ID列表
+                # Generate a list of IDs containing n sentences before and after
                 ids_range = [
                     f"{base_id}_{i}" for i in range(start_index, end_index + 1)
                 ]
@@ -165,7 +165,7 @@ class Chroma(ABC):
         filter_first: bool = True,
     ) -> dict:
         """
-        自定义查询方法，支持从过滤后的数据中直接检索
+        Custom query method, supports direct retrieval from filtered data
         """
         try:
             if not filter_first or not where:
@@ -173,26 +173,19 @@ class Chroma(ABC):
                     query_texts=query_texts, n_results=n_results, where=where
                 )
 
-            # 1. 获取过滤后的数据（明确包含embeddings）
-            # start_time = time.time()
+            # 1. Get filtered data (explicitly include embeddings)
             filtered_data = self._collection.get(
                 where=where,
-                include=["embeddings", "documents", "metadatas"],  # 明确指定要包含embeddings
+                include=["embeddings", "documents", "metadatas"],  # Explicitly include embeddings
             )
-            # filter_time = time.time() - start_time
-            # print(f"过滤数据耗时: {filter_time:.4f}秒")
 
             if not filtered_data["ids"]:
                 return {"ids": [], "documents": [], "metadatas": [], "distances": []}
 
-            # 2. 获取查询文本的嵌入向量
-            # start_time = time.time()
+            # 2. Get embedding vectors for query texts
             query_embeddings = self.embedding_function(query_texts)
-            # query_embed_time = time.time() - start_time
-            # print(f"查询文本编码耗时: {query_embed_time:.4f}秒")
 
-            # 3. 获取过滤后数据的嵌入向量
-            # start_time = time.time()
+            # 3. Get embedding vectors for filtered data
             if filtered_data["embeddings"] is None:
                 filtered_embeddings = np.array(
                     [
@@ -202,11 +195,8 @@ class Chroma(ABC):
                 )
             else:
                 filtered_embeddings = np.array(filtered_data["embeddings"])
-            # filter_embed_time = time.time() - start_time
-            # print(f"过滤数据编码耗时: {filter_embed_time:.4f}秒")
 
-            # 4. 计算相似度并获取结果
-            # start_time = time.time()
+            # 4. Calculate similarity and get results
             similarities = np.dot(query_embeddings, filtered_embeddings.T) / (
                 np.linalg.norm(query_embeddings, axis=1)[:, np.newaxis]
                 * np.linalg.norm(filtered_embeddings, axis=1)
@@ -221,9 +211,6 @@ class Chroma(ABC):
                 "metadatas": [filtered_data["metadatas"][i] for i in top_indices],
                 "distances": [1 - similarities[0][i] for i in top_indices],
             }
-            # similarity_time = time.time() - start_time
-            # print(f"相似度计算耗时: {similarity_time:.4f}秒")
-            # print(f"总耗时: {filter_time + query_embed_time + filter_embed_time + similarity_time:.4f}秒")
 
             return results
 
@@ -233,7 +220,7 @@ class Chroma(ABC):
 
     def clean_database(self):
         """
-        清空当前数据库中的所有数据
+        Clear all data in the current database
         """
         try:
             self._collection.delete(self._collection.get()["ids"])
@@ -243,11 +230,11 @@ class Chroma(ABC):
 
     def check_metadata_completeness(self, required_keys=None):
         """
-        检查数据库中的每条数据是否都包含指定的metadata键
+        Check if each entry in the database contains the specified metadata keys
         Args:
-            required_keys (list): 需要检查的metadata键列表，如果为None则只检查是否有metadata
+            required_keys (list): List of metadata keys to check, if None, only check for the presence of metadata
         Returns:
-            dict: 包含检查结果的字典
+            dict: Dictionary containing the check results
         """
         try:
             all_data = self._collection.get()
@@ -260,15 +247,15 @@ class Chroma(ABC):
             }
 
             if total_entries == 0:
-                return {"status": "empty", "message": "数据库中没有数据"}
+                return {"status": "empty", "message": "No data in the database"}
 
-            # 统计所有出现的metadata键
+            # Count all metadata keys
             all_keys = set()
             for metadata in all_data["metadatas"]:
                 if metadata != "No metadata" and metadata is not None:
                     all_keys.update(metadata.keys())
 
-            # 初始化键频率统计
+            # Initialize key frequency statistics
             for key in all_keys:
                 metadata_stats["metadata_key_frequency"][key] = 0
 
@@ -276,12 +263,12 @@ class Chroma(ABC):
                 if metadata == "No metadata" or metadata is None:
                     metadata_stats["entries_without_metadata"] += 1
                     missing_metadata.append(
-                        {"id": all_data["ids"][idx], "issue": "完全缺失metadata"}
+                        {"id": all_data["ids"][idx], "issue": "No metadata"}
                     )
                     continue
 
                 metadata_stats["entries_with_metadata"] += 1
-                # 统计每个键的出现频率
+                # Count the frequency of each key
                 for key in metadata:
                     metadata_stats["metadata_key_frequency"][key] += 1
 
@@ -291,11 +278,11 @@ class Chroma(ABC):
                         missing_metadata.append(
                             {
                                 "id": all_data["ids"][idx],
-                                "issue": f"缺失以下键: {missing_keys}",
+                                "issue": f"Missing keys: {missing_keys}",
                             }
                         )
 
-            # 计算每个键的覆盖率百分比
+            # Calculate the coverage percentage for each key
             for key in metadata_stats["metadata_key_frequency"]:
                 frequency = metadata_stats["metadata_key_frequency"][key]
                 coverage = (frequency / total_entries) * 100
@@ -315,16 +302,16 @@ class Chroma(ABC):
             return result
 
         except Exception as e:
-            print(f"检查metadata时发生错误: {e}")
+            print(f"Error checking metadata: {e}")
             return {"status": "error", "message": str(e)}
 
     def check_and_clean_empty_entries(self):
         """
-        检查所有条目，删除documents或metadatas为空的条目。
-        返回包含被删除ID列表、数量及状态信息的字典。
+        Check all entries and delete entries with empty documents or metadatas.
+        Returns a dictionary containing the list of deleted IDs, count, and status information.
         """
         try:
-            # 获取所有数据，包含documents和metadatas
+            # Get all data, including documents and metadatas
             all_data = self._collection.get(include=["documents", "metadatas"])
             ids = all_data["ids"]
             documents = all_data["documents"]
@@ -335,9 +322,9 @@ class Chroma(ABC):
                 doc = documents[idx]
                 meta = metadatas[idx] if idx < len(metadatas) else None
 
-                # 检查document是否为空（None或空字符串）
+                # Check if document is empty (None or empty string)
                 doc_empty = doc is None or (isinstance(doc, str) and doc.strip() == "")
-                # 检查metadata是否为空（None或空字典）
+                # Check if metadata is empty (None or empty dictionary)
                 meta_empty = meta is None or meta == {}
 
                 if doc_empty or meta_empty:

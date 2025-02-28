@@ -16,7 +16,7 @@ def deepseek_chat(
     # Set environment variables or use defaults
     endpoint = endpoint or os.getenv(
         "AZURE_INFERENCE_SDK_ENDPOINT",
-        "https://ai-egorag629908583457.services.ai.azure.com/models",
+        "Your_Endpoint",
     )
     model_name = model_name or os.getenv("DEPLOYMENT_NAME", "DeepSeek-R1")
     key = key or os.getenv("AZURE_INFERENCE_SDK_KEY", "YOUR_KEY_HERE")

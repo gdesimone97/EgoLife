@@ -72,7 +72,6 @@ def get_ids(question, results):
     prompt = f"Question:{question}\n Search Results:{results}"
     answer = call_gpt4(prompt=prompt, system_message=system_prompt, temperature=0.1)
     print(answer)
-    # Extract the ID from the answer using regex
     id_match = re.search(r"ID:\s*(DAY\d+-\d{8}-\d{8}_\d)", answer)
     if id_match:
         id = id_match.group(1)
@@ -84,10 +83,8 @@ def get_ids(question, results):
 
 
 def get_max_endtime_result(raw_results):
-    # 首先找出最大的date
     max_date = max(metadata["date"] for metadata in raw_results["metadatas"][0])
 
-    # 在最大date的条目中找出最大的end_time
     max_end_time_idx = max(
         (
             i
@@ -97,7 +94,6 @@ def get_max_endtime_result(raw_results):
         key=lambda i: raw_results["metadatas"][0][i]["end_time"],
     )
 
-    # 创建一个新字典，只包含选中的数据
     return {
         "ids": [raw_results["ids"][0][max_end_time_idx]],
         "documents": [raw_results["documents"][0][max_end_time_idx]],
@@ -119,33 +115,27 @@ def timestamp_operation(timestamp1, timestamp2, operation="add", fps=30):
     Returns:
         int: Result of timestamp operation
     """
-    # Convert to strings and pad to 8 digits if needed
     ts1 = str(timestamp1).zfill(8)
     ts2 = str(timestamp2).zfill(8)
 
-    # Extract components
     h1, m1, s1, f1 = int(ts1[:2]), int(ts1[2:4]), int(ts1[4:6]), int(ts1[6:])
     h2, m2, s2, f2 = int(ts2[:2]), int(ts2[2:4]), int(ts2[4:6]), int(ts2[6:])
 
-    # Convert all to frames using fps
     total1 = ((h1 * 60 + m1) * 60 + s1) * fps + f1
     total2 = ((h2 * 60 + m2) * 60 + s2) * fps + f2
 
-    # Perform operation
     if operation == "add":
         result = total1 + total2
-    else:  # subtract
+    else:
         result = total1 - total2
         if result < 0:
             result = 0
 
-    # Convert back to HHMMSSFF format
     frames = result % fps
     seconds = (result // fps) % 60
     minutes = (result // (fps * 60)) % 60
     hours = (result // (fps * 60 * 60)) % 100
 
-    # Scale frames to 0-99 range
     frames = int((frames / fps) * 100)
 
     return int(f"{hours:02d}{minutes:02d}{seconds:02d}{frames:02d}")
@@ -154,24 +144,20 @@ def timestamp_operation(timestamp1, timestamp2, operation="add", fps=30):
 def parse_video_map(video_map):
     parsed_data = []
     for key, video_path in video_map.items():
-        # 分割 key 获取 date, start_time, end_time
         key_parts = key.split("-")
         date = key_parts[0]
         start_time = int(key_parts[1])
         end_time = int(key_parts[2])
 
-        # 提取 video_path 中的时间部分
-        match = re.search(r"_(\d{8})\.mp4$", video_path)  # 提取视频路径中的时间部分
+        match = re.search(r"_(\d{8})\.mp4$", video_path)
         if match:
-            video_start_time = int(match.group(1))  # 将提取到的时间转为整数
+            video_start_time = int(match.group(1))
         else:
-            video_start_time = None  # 如果未找到时间部分，则设为 None
+            video_start_time = None
 
-        # 提取 date 中的数字部分作为 int_date
         match = re.search(r"\d+", date)
         int_date = int(match.group()) if match else None
 
-        # 将解析后的数据添加到结果列表中
         parsed_data.append(
             {
                 "date": date,
@@ -180,21 +166,18 @@ def parse_video_map(video_map):
                 "end_time": end_time,
                 "video_path": video_path,
                 "video_id": key,
-                "video_start_time": video_start_time,  # 添加视频的开始时间
+                "video_start_time": video_start_time,
             }
         )
     return parsed_data
 
 
 def transform_timedict(time_dict):
-    # 使用 defaultdict 来自动创建列表
     date_time_mapping = defaultdict(list)
 
-    # 填充字典
     for entry in time_dict:
         date_time_mapping[entry["date"]].append(str(entry["time"]))
 
-    # 对每个日期下的时间进行排序
     for date in date_time_mapping:
         date_time_mapping[date] = sorted(date_time_mapping[date])
     return date_time_mapping
@@ -222,7 +205,6 @@ def call_gpt4(
     Returns:
         Optional[str]: The response content from GPT-4, or None if request fails after retries
     """
-    # Configuration
     GPT4V_KEY = os.getenv("GPT4V_KEY")
     GPT4V_ENDPOINT = os.getenv("GPT4V_ENDPOINT")
 
@@ -252,8 +234,8 @@ def call_gpt4(
             return response.json()["choices"][0]["message"]["content"]
         except Exception as e:
             print(f"Attempt {attempt + 1} failed. Error: {e}")
-            if attempt < retries - 1:  # No delay needed after the last attempt
-                time.sleep(2)  # Wait for 2 seconds before retrying
+            if attempt < retries - 1:
+                time.sleep(2)
             else:
                 print("All retry attempts failed.")
                 return "error"
@@ -281,28 +263,21 @@ class RagAgent(ABC):
         results = []
 
         for answer in answers:
-            # 获取正确答案和模型回答
             correct_answer = answer["metadata"]["answer"]
             model_answer = answer["model_option"]
 
-            # 模型回答有效且不为 None 时，才进行比较
             total_count += 1
             if model_answer is None or not model_answer.strip():
-                # 模型回答为空或None，视为错误
                 is_correct = False
             else:
-                # 如果模型的回答与正确答案匹配，增加正确数
                 is_correct = model_answer.strip() == correct_answer.strip()
 
             correct_count += is_correct
 
-            # 记录当前回答的结果
             answer["is_correct"] = is_correct
             results.append(answer)
-        # 计算正确率，如果总题数为0，返回0避免除以0的错误
         accuracy = correct_count / total_count if total_count > 0 else 0
 
-        # 如果传入了保存文件的地址，则将结果保存为 JSON 文件
         if save_to_file:
             with open(save_to_file, "w", encoding="utf-8") as f:
                 json.dump(
@@ -312,7 +287,6 @@ class RagAgent(ABC):
                     indent=4,
                 )
 
-        # 返回正确率
         return accuracy
 
     def get_video_mapping(self, sorted_video_times, all_times):
@@ -326,10 +300,8 @@ class RagAgent(ABC):
                 start_time = all_time_list[i]
                 end_time = all_time_list[i + 1]
 
-                # 找到 start_time 所属的 sorted_video_time 段
                 for j in range(len(video_time_list) - 1):
                     if video_time_list[j] <= start_time < video_time_list[j + 1]:
-                        # 确定视频地址，以 sorted_video_time[j] 为文件名
                         video_path = os.path.join(
                             base_dir,
                             f"{date}",
@@ -337,10 +309,8 @@ class RagAgent(ABC):
                         )
                         break
                 else:
-                    # 如果未找到合适的段（理论上不应该发生，如果 merged_times 与 sorted_video_time 对应）
                     video_path = None
 
-                # 将时间段和对应的视频路径添加到字典中
                 video_path_mapping[f"{date}-{start_time}-{end_time}"] = video_path
         return video_path_mapping
 
@@ -353,7 +323,6 @@ class RagAgent(ABC):
         video_start_time = sample["video_start_time"]
 
         try:
-            # Set timeout to 30 seconds
             import signal
 
             def timeout_handler(signum, frame):
@@ -365,7 +334,7 @@ class RagAgent(ABC):
             caption = self.model.inference_video(
                 video_path, video_start_time, start_time, end_time, human_query
             )
-            signal.alarm(0)  # Disable alarm
+            signal.alarm(0)
             print(caption)
         except TimeoutError as te:
             print(f"Timeout error in captioning: {te}")
@@ -383,9 +352,7 @@ class RagAgent(ABC):
             if sentence.strip()
         ]
         embeddings = self.database_t.embedding_function(sentences)
-        # 为每个句子分配一个新的 id
         new_ids = [f"{id}_{i}" for i in range(len(sentences))]
-        # 创建新的 add_element
         add_element = dict(
             ids=new_ids,
             documents=sentences,
@@ -399,7 +366,7 @@ class RagAgent(ABC):
                 }
             ]
             * len(sentences),
-        )  # 复制 metadata 以匹配每个子句
+        )
 
         collection = self.database_t.collection
         collection.add(**add_element)
@@ -410,14 +377,12 @@ class RagAgent(ABC):
         )
         print(f"Time cost: {time.time()-time_start:.2f}s")
 
-        # 返回处理后的结果
         return [
             {"id": new_id, "caption": sentence}
             for new_id, sentence in zip(new_ids, sentences)
         ]
 
     def rag_CLIP_text(self, human_query, n_results=2):
-        # similarity between user_query and captions
         results = self.database_t.collection.query(
             query_texts=[human_query], n_results=n_results
         )
@@ -435,8 +400,8 @@ class RagAgent(ABC):
     ):
         video_time = [
             {
-                "date": re.search(r"DAY\d", path).group(0),  # 提取日期，如DAY1, DAY2
-                "time": re.search(r"_(\d{8})\.mp4", path).group(1),  # 提取时间，格式为8位数字
+                "date": re.search(r"DAY\d", path).group(0),
+                "time": re.search(r"_(\d{8})\.mp4", path).group(1),
             }
             for path in video_paths
             if re.search(r"DAY\d", path) and re.search(r"_(\d{8})\.mp4", path)
@@ -453,7 +418,6 @@ class RagAgent(ABC):
                 seen_times.add((date, time))
         sorted_query_time = sorted(query_time, key=lambda x: (x["date"], x["time"]))
 
-        # 合并并再次按日期和时间排序
         all_times = sorted(
             sorted_video_time + sorted_query_time, key=lambda x: (x["date"], x["time"])
         )
@@ -479,23 +443,15 @@ class RagAgent(ABC):
                 )
 
     def create_database_from_json(self, json_path):
-        """Creates a database from a JSON file containing caption data.c
-
-        Args:
-            json_path (str): Path to the JSON file
-        """
-        # Load JSON data
         with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         print(f"Loaded {len(data)} entries from {json_path}")
 
-        # Process each entry
         for idx, entry in tqdm(
             enumerate(data), total=len(data), desc="Processing entries"
         ):
             try:
-                # Extract metadata
                 date_match = re.search(r"DAY(\d+)", entry["date"])
                 int_date = int(date_match.group(1)) if date_match else 0
                 date = entry["date"]
@@ -504,18 +460,15 @@ class RagAgent(ABC):
                     "video_path",
                     os.path.join(self.video_base_dir, self.name, date, video_name),
                 )
-                # Handle ellipsis and proper sentence splitting
 
                 sentences = [
                     sentence.strip()
                     for sentence in re.split(r"(?<=[.!?])\s*", entry["text"])
                     if sentence.strip()
                 ]
-                # Create entry ID in format DAYX_STARTTIME_ENDTIME
                 entry_id = f"{entry['date']}-{entry['start_time']}-{entry['end_time']}"
                 new_ids = [f"{entry_id}_{i}" for i in range(len(sentences))]
 
-                # Check if any of the IDs already exist
                 existing_docs = self.database_t.collection.get(
                     ids=new_ids, include=["documents"]
                 )
@@ -523,7 +476,6 @@ class RagAgent(ABC):
                     print(f"IDs {entry_id} already exist with content, skipping.")
                     continue
 
-                # Create metadata
                 metadata = {
                     "start_time": int(entry["start_time"]),
                     "end_time": int(entry["end_time"]),
@@ -531,10 +483,7 @@ class RagAgent(ABC):
                     "video_path": video_path,
                 }
 
-                # Get embeddings using database's embedding function
-
                 embeddings = self.database_t.embedding_function(sentences)
-                # Create add_element dictionary
 
                 add_element = {
                     "ids": new_ids,
@@ -543,9 +492,8 @@ class RagAgent(ABC):
                     "embeddings": embeddings,
                 }
 
-                # Add to collection
                 self.database_t.collection.add(**add_element)
-                if idx % 100 == 0:  # Print progress every 100 entries
+                if idx % 100 == 0:
                     print(
                         f"Added {idx} entries. Current collection size: {len(self.database_t.collection.get(include=['documents'])['ids'])}"
                     )
@@ -628,17 +576,14 @@ class RagAgent(ABC):
         """
         processed_results = []
 
-        # Check if we have results
         if not raw_results["ids"] or not raw_results["ids"][0]:
             return processed_results
 
-        # Get the first (and usually only) batch of results
         ids = raw_results["ids"][0]
         documents = raw_results["documents"][0]
         metadatas = raw_results["metadatas"][0]
         distances = raw_results["distances"][0]
 
-        # Combine results into a list of tuples for sorting
         combined_results = [
             (
                 ids[i],
@@ -650,11 +595,9 @@ class RagAgent(ABC):
             for i in range(len(ids))
         ]
 
-        # Sort results first by date and then by end_time
         combined_results.sort(
             key=lambda x: (x[2], x[3])
-        )  # Sort by date and then by end_timeS
-        # Process each sorted result
+        )
         for id, document, date, end_time, distance in combined_results:
             results = self.database_t.get_caption(id=id, n_result=1)
             expand_documents = results["documents"]
@@ -695,7 +638,6 @@ class RagAgent(ABC):
             prompt_l1, system_message=system_message_l1, temperature=0.8
         )
         print(response_l1)
-        # Extract number from [X] format
         match = re.match(r"\[(\d+)\]", response_l1.strip())
         if match:
             target_date = int(match.group(1))

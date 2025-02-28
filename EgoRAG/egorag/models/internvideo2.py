@@ -79,8 +79,8 @@ class InternVideo2(BaseQueryModel):
 
         start_frame -= video_start_frame
         end_frame -= video_start_frame
-        start_frame = max(0, int(round(start_frame)))  # 确保不会小于0
-        end_frame = min(total_frame_num, int(round(end_frame)))  # 确保不会超过总帧数
+        start_frame = max(0, int(round(start_frame)))  # Ensure it is not less than 0
+        end_frame = min(total_frame_num, int(round(end_frame)))  # Ensure it does not exceed total frames
         start_frame = int(round(start_frame))
         end_frame = int(round(end_frame))
 
@@ -90,7 +90,7 @@ class InternVideo2(BaseQueryModel):
             if (i - start_frame) % int(video_fps / fps) == 0
         ]
 
-        # internvideo2模型中，输入是tensor
+        # In the internvideo2 model, the input is a tensor
         frames = vr.get_batch(frame_idx)
         frames = frames.permute(0, 3, 1, 2)
         frames = transform(frames)

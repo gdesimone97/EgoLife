@@ -44,20 +44,14 @@ from transformers import AutoConfig
 
 # sys.path.append("/mnt/lzy/llava-video")
 
-
-
-
-
 def split_list(lst, n):
     """Split a list into n (roughly) equal-sized chunks"""
     chunk_size = math.ceil(len(lst) / n)  # integer division
     return [lst[i : i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
-
 def get_chunk(lst, n, k):
     chunks = split_list(lst, n)
     return chunks[k]
-
 
 def preprocess_qwen(
     sources,
@@ -72,9 +66,8 @@ def preprocess_qwen(
     nl_tokens = tokenizer("\n").input_ids
     _system = tokenizer("system").input_ids + nl_tokens
     _user = tokenizer("user").input_ids + nl_tokens
-    _assistant = tokenizer("assistant").input_ids + nl_tokens
+    _assistant = tokenizer("assistant").input.ids + nl_tokens
 
-    # Apply prompt templates
     input_ids, targets = [], []
 
     source = sources
@@ -85,7 +78,7 @@ def preprocess_qwen(
     system = (
         [im_start]
         + _system
-        + tokenizer(system_message).input_ids
+        + tokenizer(system_message).input.ids
         + [im_end]
         + nl_tokens
     )
@@ -101,21 +94,21 @@ def preprocess_qwen(
         ):
             num_image = len(re.findall(DEFAULT_IMAGE_TOKEN, sentence["value"]))
             texts = sentence["value"].split("<image>")
-            _input_id = tokenizer(role).input_ids + nl_tokens
+            _input_id = tokenizer(role).input.ids + nl_tokens
             for i, text in enumerate(texts):
-                _input_id += tokenizer(text).input_ids
+                _input_id += tokenizer(text).input.ids
                 if i < len(texts) - 1:
                     _input_id += [IMAGE_TOKEN_INDEX] + nl_tokens
             _input_id += [im_end] + nl_tokens
             assert sum([i == IMAGE_TOKEN_INDEX for i in _input_id]) == num_image
         else:
             if sentence["value"] is None:
-                _input_id = tokenizer(role).input_ids + nl_tokens
+                _input_id = tokenizer(role).input.ids + nl_tokens
             else:
                 _input_id = (
-                    tokenizer(role).input_ids
+                    tokenizer(role).input.ids
                     + nl_tokens
-                    + tokenizer(sentence["value"]).input_ids
+                    + tokenizer(sentence["value"]).input.ids
                     + [im_end]
                     + nl_tokens
                 )
@@ -130,8 +123,8 @@ def preprocess_qwen(
         elif role == "<|im_start|>assistant":
             _target = (
                 [im_start]
-                + [IGNORE_INDEX] * len(tokenizer(role).input_ids)
-                + _input_id[len(tokenizer(role).input_ids) + 1 : -2]
+                + [IGNORE_INDEX] * len(tokenizer(role).input.ids)
+                + _input_id[len(tokenizer(role).input.ids) + 1 : -2]
                 + [im_end]
                 + nl_tokens
             )
@@ -144,7 +137,6 @@ def preprocess_qwen(
     input_ids = torch.tensor(input_ids, dtype=torch.long)
     targets = torch.tensor(targets, dtype=torch.long)
     return input_ids
-
 
 class Oryx(BaseQueryModel):
     def __init__(
@@ -192,29 +184,23 @@ class Oryx(BaseQueryModel):
         fps=1,
         max_frames_num=32,
     ):
-        # Initialize video reader
         vr = decord.VideoReader(video_path, ctx=decord.cpu(0), num_threads=1)
         total_frame_num = len(vr)
 
-        # Get the actual FPS of the video
         video_fps = vr.get_avg_fps()
 
-        # Convert time to frame index based on the actual video FPS
         video_start_frame = int(time_to_frame_idx(video_start_time, video_fps))
         start_frame = int(time_to_frame_idx(start_time, video_fps))
         end_frame = int(time_to_frame_idx(end_time, video_fps))
 
-        # Ensure the end time does not exceed the total frame number
         if end_frame - start_frame > total_frame_num:
             end_frame = total_frame_num + start_frame
 
-        # Adjust start_frame and end_frame based on video start time
         start_frame -= video_start_frame
         end_frame -= video_start_frame
         start_frame = int(round(start_frame))
         end_frame = int(round(end_frame))
 
-        # Sample frames based on the provided fps (e.g., 1 frame per second)
         frame_idx = [
             i
             for i in range(start_frame, end_frame)
@@ -225,10 +211,8 @@ class Oryx(BaseQueryModel):
         )
         frame_idx = uniform_sampled_frames.tolist()
 
-        # Get the video frames for the sampled indices
         video = vr.get_batch(frame_idx).asnumpy()
 
-        # Return processed video and the corresponding frame indices
         return {
             "processed_video": video,
             "frame_idx": frame_idx,
