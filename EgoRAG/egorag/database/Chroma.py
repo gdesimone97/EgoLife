@@ -67,7 +67,9 @@ class Chroma(ABC):
             try:
                 # Parse the index part of the ID (e.g., DAY3_10000000_10003000_1 -> 1)
                 parts = id.split("_")
-                base_id = "_".join(parts[:-1])  # Extract the front part, get "DAY3_10000000_10003000"
+                base_id = "_".join(
+                    parts[:-1]
+                )  # Extract the front part, get "DAY3_10000000_10003000"
                 index = int(parts[-1])  # Extract the last part, get the index
 
                 # Calculate the range of n sentences before and after, ensuring the minimum value is 0
@@ -176,7 +178,11 @@ class Chroma(ABC):
             # 1. Get filtered data (explicitly include embeddings)
             filtered_data = self._collection.get(
                 where=where,
-                include=["embeddings", "documents", "metadatas"],  # Explicitly include embeddings
+                include=[
+                    "embeddings",
+                    "documents",
+                    "metadatas",
+                ],  # Explicitly include embeddings
             )
 
             if not filtered_data["ids"]:

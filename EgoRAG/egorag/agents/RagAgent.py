@@ -595,9 +595,7 @@ class RagAgent(ABC):
             for i in range(len(ids))
         ]
 
-        combined_results.sort(
-            key=lambda x: (x[2], x[3])
-        )
+        combined_results.sort(key=lambda x: (x[2], x[3]))
         for id, document, date, end_time, distance in combined_results:
             results = self.database_t.get_caption(id=id, n_result=1)
             expand_documents = results["documents"]

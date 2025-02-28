@@ -1,47 +1,47 @@
 ###  -----------------  ###
 # Standard library imports
+import copy
 import os
 import re
 import sys
-import copy
 import warnings
 from typing import Optional
-import warnings
+
 warnings.filterwarnings("ignore", category=UserWarning)
 
+import json
+import shutil
 import threading
-from transformers import TextIteratorStreamer
+from datetime import datetime
+
+import gradio as gr
+import librosa
 
 # Third-party imports
 import numpy as np
+import requests
+import spaces
 import torch
 import torch.distributed as dist
 import uvicorn
-import librosa
 import whisper
-import requests
-from fastapi import FastAPI
-from pydantic import BaseModel
 from decord import VideoReader, cpu
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
-
-import gradio as gr
-import spaces
-import json
-from datetime import datetime
-import shutil
+from egogpt.constants import (
+    DEFAULT_IMAGE_TOKEN,
+    DEFAULT_SPEECH_TOKEN,
+    IGNORE_INDEX,
+    IMAGE_TOKEN_INDEX,
+    SPEECH_TOKEN_INDEX,
+)
+from egogpt.conversation import SeparatorStyle, conv_templates
+from egogpt.mm_utils import get_model_name_from_path, process_images
 
 # Local imports
 from egogpt.model.builder import load_pretrained_model
-from egogpt.mm_utils import get_model_name_from_path, process_images
-from egogpt.constants import (
-    IMAGE_TOKEN_INDEX, 
-    DEFAULT_IMAGE_TOKEN, 
-    IGNORE_INDEX,
-    SPEECH_TOKEN_INDEX,
-    DEFAULT_SPEECH_TOKEN
-)
-from egogpt.conversation import conv_templates, SeparatorStyle
+from fastapi import FastAPI
+from pydantic import BaseModel
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+
 # subprocess.run('pip install flash-attn --no-build-isolation', env={'FLASH_ATTENTION_SKIP_CUDA_BUILD': "TRUE"}, shell=True)
 
 # pretrained = "/mnt/sfs-common/jkyang/EgoGPT/checkpoints/EgoGPT-llavaov-7b-EgoIT-109k-release"
@@ -51,17 +51,19 @@ pretrained = "/mnt/sfs-common/jkyang/EgoGPT_release/checkpoints/EgoGPT-7b-Demo"
 device = "cuda"
 device_map = "cuda"
 
+
 # Add this initialization code before loading the model
 def setup(rank, world_size):
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12377'
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12377"
 
     # initialize the process group
     dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
-setup(0,1)
-tokenizer, model, max_length = load_pretrained_model(pretrained,device_map=device_map)
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+setup(0, 1)
+tokenizer, model, max_length = load_pretrained_model(pretrained, device_map=device_map)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device).eval()
 
 title_markdown = """
@@ -114,6 +116,7 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 UPLOADS_DIR = os.path.join(cur_dir, "user_uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
+
 def time_to_frame_idx(time_int: int, fps: int) -> int:
     """
     Convert time in HHMMSSFF format (integer or string) to frame index.
@@ -123,7 +126,8 @@ def time_to_frame_idx(time_int: int, fps: int) -> int:
     """
     # Ensure time_int is a string for slicing
     time_str = str(time_int).zfill(
-        8)  # Pad with zeros if necessary to ensure it's 8 digits
+        8
+    )  # Pad with zeros if necessary to ensure it's 8 digits
 
     hours = int(time_str[:2])
     minutes = int(time_str[2:4])
@@ -135,19 +139,23 @@ def time_to_frame_idx(time_int: int, fps: int) -> int:
 
     return total_frames
 
+
 def split_text(text, keywords):
     # 创建一个正则表达式模式，将所有关键词用 | 连接，并使用捕获组
-    pattern = '(' + '|'.join(map(re.escape, keywords)) + ')'
+    pattern = "(" + "|".join(map(re.escape, keywords)) + ")"
     # 使用 re.split 保留分隔符
     parts = re.split(pattern, text)
     # 去除空字符串
     parts = [part for part in parts if part]
     return parts
 
+
 warnings.filterwarnings("ignore")
 
 # Create FastAPI instance
 app = FastAPI()
+
+
 def load_video(
     video_path: Optional[str] = None,
     max_frames_num: int = 16,
@@ -155,18 +163,18 @@ def load_video(
     video_start_time: Optional[float] = None,
     start_time: Optional[float] = None,
     end_time: Optional[float] = None,
-    time_based_processing: bool = False
+    time_based_processing: bool = False,
 ) -> tuple:
     vr = VideoReader(video_path, ctx=cpu(0), num_threads=1)
     target_sr = 16000
-    
+
     # Process video frames first
     if time_based_processing:
         # Initialize video reader
         vr = decord.VideoReader(video_path, ctx=decord.cpu(0), num_threads=1)
         total_frame_num = len(vr)
         video_fps = vr.get_avg_fps()
-        
+
         # Convert time to frame index based on the actual video FPS
         video_start_frame = int(time_to_frame_idx(video_start_time, video_fps))
         start_frame = int(time_to_frame_idx(start_time, video_fps))
@@ -183,12 +191,16 @@ def load_video(
         start_frame -= video_start_frame
         end_frame -= video_start_frame
         start_frame = max(0, int(round(start_frame)))  # 确保不会小于0
-        end_frame = min(total_frame_num, int(round(end_frame))) # 确保不会超过总帧数
+        end_frame = min(total_frame_num, int(round(end_frame)))  # 确保不会超过总帧数
         start_frame = int(round(start_frame))
         end_frame = int(round(end_frame))
 
         # Sample frames based on the provided fps (e.g., 1 frame per second)
-        frame_idx = [i for i in range(start_frame, end_frame) if (i - start_frame) % int(video_fps / fps) == 0]
+        frame_idx = [
+            i
+            for i in range(start_frame, end_frame)
+            if (i - start_frame) % int(video_fps / fps) == 0
+        ]
 
         # Get the video frames for the sampled indices
         video = vr.get_batch(frame_idx).asnumpy()
@@ -197,12 +209,14 @@ def load_video(
         total_frame_num = len(vr)
         avg_fps = round(vr.get_avg_fps() / fps)
         frame_idx = [i for i in range(0, total_frame_num, avg_fps)]
-        
+
         if max_frames_num > 0:
             if len(frame_idx) > max_frames_num:
-                uniform_sampled_frames = np.linspace(0, total_frame_num - 1, max_frames_num, dtype=int)
+                uniform_sampled_frames = np.linspace(
+                    0, total_frame_num - 1, max_frames_num, dtype=int
+                )
                 frame_idx = uniform_sampled_frames.tolist()
-        
+
         video = vr.get_batch(frame_idx).asnumpy()
 
     # Try to load audio, return None for speech if failed
@@ -214,14 +228,14 @@ def load_video(
             speech = y[start_sample:end_sample]
         else:
             speech, _ = librosa.load(video_path, sr=target_sr)
-            
+
         # Process audio if it exists
         speech = whisper.pad_or_trim(speech.astype(np.float32))
         speech = whisper.log_mel_spectrogram(speech, n_mels=128).permute(1, 0)
         speech_lengths = torch.LongTensor([speech.shape[0]])
-        
+
         return video, speech, speech_lengths, True  # True indicates real audio
-        
+
     except Exception as e:
         print(f"Warning: Could not load audio from video: {e}")
         # Create dummy silent audio
@@ -231,6 +245,7 @@ def load_video(
         speech = whisper.log_mel_spectrogram(speech, n_mels=128).permute(1, 0)
         speech_lengths = torch.LongTensor([speech.shape[0]])
         return video, speech, speech_lengths, False  # False indicates no real audio
+
 
 class PromptRequest(BaseModel):
     prompt: str
@@ -242,22 +257,23 @@ class PromptRequest(BaseModel):
     end_time: float = None
     time_based_processing: bool = False
 
+
 # @spaces.GPU(duration=120)
 def save_interaction(video_path, prompt, output, audio_path=None):
     """Save user interaction data and files"""
     if not video_path:
         return
-    
+
     # Create timestamped directory for this interaction
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     interaction_dir = os.path.join(UPLOADS_DIR, timestamp)
     os.makedirs(interaction_dir, exist_ok=True)
-    
+
     # Copy video file
     video_ext = os.path.splitext(video_path)[1]
     new_video_path = os.path.join(interaction_dir, f"video{video_ext}")
     shutil.copy2(video_path, new_video_path)
-    
+
     # Save metadata
     metadata = {
         "timestamp": timestamp,
@@ -265,27 +281,28 @@ def save_interaction(video_path, prompt, output, audio_path=None):
         "output": output,
         "video_path": new_video_path,
     }
-    
+
     # Only try to save audio if it's a file path (str), not audio data (tuple)
     if audio_path and isinstance(audio_path, (str, bytes, os.PathLike)):
         audio_ext = os.path.splitext(audio_path)[1]
         new_audio_path = os.path.join(interaction_dir, f"audio{audio_ext}")
         shutil.copy2(audio_path, new_audio_path)
         metadata["audio_path"] = new_audio_path
-    
+
     with open(os.path.join(interaction_dir, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=4)
 
+
 def extract_audio_from_video(video_path, audio_path=None):
-    print('Processing audio from video...', video_path, audio_path)
+    print("Processing audio from video...", video_path, audio_path)
     if video_path is None:
         return None
-        
-    if isinstance(video_path, dict) and 'name' in video_path:
-        video_path = video_path['name']
-    
+
+    if isinstance(video_path, dict) and "name" in video_path:
+        video_path = video_path["name"]
+
     try:
-        y, sr = librosa.load(video_path, sr=8000, mono=True, res_type='kaiser_fast')
+        y, sr = librosa.load(video_path, sr=8000, mono=True, res_type="kaiser_fast")
         # Check if the audio is silent
         if np.abs(y).mean() < 0.001:
             print("Video appears to be silent")
@@ -295,7 +312,9 @@ def extract_audio_from_video(video_path, audio_path=None):
         print(f"Warning: Could not extract audio from video: {e}")
         return None
 
+
 import time
+
 
 def generate_text(video_path, audio_track, prompt):
     streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True)
@@ -309,9 +328,9 @@ def generate_text(video_path, audio_track, prompt):
         speech_lengths = None
         has_real_audio = False
         image = None
-        image_sizes= None
+        image_sizes = None
         modalities = ["image"]
-        image_tensor=None
+        image_tensor = None
     # Load video and potentially audio
     else:
         video, speech, speech_lengths, has_real_audio = load_video(
@@ -328,7 +347,9 @@ def generate_text(video_path, audio_track, prompt):
 
         speech = torch.stack([speech]).to("cuda").half()
         processor = model.get_vision_tower().image_processor
-        processed_video = processor.preprocess(video, return_tensors="pt")["pixel_values"]
+        processed_video = processor.preprocess(video, return_tensors="pt")[
+            "pixel_values"
+        ]
         image = [(processed_video, video[0].size, "video")]
         image_tensor = [image[0][0].half()]
         image_sizes = [image[0][1]]
@@ -339,20 +360,19 @@ def generate_text(video_path, audio_track, prompt):
     conv.append_message(conv.roles[1], None)
     prompt_question = conv.get_prompt()
 
-
-
     parts = split_text(prompt_question, ["<image>", "<speech>"])
     input_ids = []
     for part in parts:
         if "<image>" == part:
             input_ids += [IMAGE_TOKEN_INDEX]
-        elif "<speech>" == part and speech is not None:  # Only add speech token if we have audio
+        elif (
+            "<speech>" == part and speech is not None
+        ):  # Only add speech token if we have audio
             input_ids += [SPEECH_TOKEN_INDEX]
         else:
             input_ids += tokenizer(part).input_ids
 
     input_ids = torch.tensor(input_ids, dtype=torch.long).unsqueeze(0).to(device)
-
 
     generate_kwargs = {"eos_token_id": tokenizer.eos_token_id}
 
@@ -369,7 +389,7 @@ def generate_text(video_path, audio_track, prompt):
             repetition_penalty=1.2,
             modalities=modalities,
             streamer=streamer,
-            **generate_kwargs
+            **generate_kwargs,
         )
 
     # Start generation in a separate thread
@@ -379,7 +399,7 @@ def generate_text(video_path, audio_track, prompt):
     # Stream the output word by word
     generated_text = ""
     partial_word = ""
-    cursor = "|"  
+    cursor = "|"
     cursor_visible = True
     last_cursor_toggle = time.time()
 
@@ -406,6 +426,7 @@ def generate_text(video_path, audio_track, prompt):
 
     # Save the interaction after generation is complete
     save_interaction(video_path, prompt, generated_text, audio_track)
+
 
 head = """
 <head>
@@ -551,31 +572,67 @@ document.addEventListener('DOMContentLoaded', () => {
 with gr.Blocks(title="EgoGPT Demo - EgoLife", head=head) as demo:
     gr.Markdown(title_markdown)
     gr.Markdown(notice_html)
-    
+
     with gr.Row():
         with gr.Column():
-            video_input = gr.Video(label="Video", autoplay=True, loop=True, format="mp4", width=600, height=400, show_label=False, elem_id='video')
+            video_input = gr.Video(
+                label="Video",
+                autoplay=True,
+                loop=True,
+                format="mp4",
+                width=600,
+                height=400,
+                show_label=False,
+                elem_id="video",
+            )
             # Make audio display conditionally visible
-            audio_display = gr.Audio(label="Video Audio Track", autoplay=False, show_label=True, visible=True, interactive=False, elem_id="audio")
-            text_input = gr.Textbox(label="Question", placeholder="Enter your message here...", value="Describe everything I saw, did, and heard, using the first perspective. Transcribe all the speech.")
-        
+            audio_display = gr.Audio(
+                label="Video Audio Track",
+                autoplay=False,
+                show_label=True,
+                visible=True,
+                interactive=False,
+                elem_id="audio",
+            )
+            text_input = gr.Textbox(
+                label="Question",
+                placeholder="Enter your message here...",
+                value="Describe everything I saw, did, and heard, using the first perspective. Transcribe all the speech.",
+            )
+
         with gr.Column():
             output_text = gr.Textbox(label="Response", lines=14, max_lines=14)
             gr.Examples(
                 examples=[
-                    [f"{cur_dir}/videos/cheers.mp4", f"{cur_dir}/videos/cheers.mp3", "Describe everything I saw, did, and heard from the first perspective."],
-                    [f"{cur_dir}/videos/DAY3_A6_SHURE_14550000.mp4", f"{cur_dir}/videos/DAY3_A6_SHURE_14550000.mp3", "请按照时间顺序描述我所见所为，并转录所有声音。"],
-                    [f"{cur_dir}/videos/shopping.mp4", f"{cur_dir}/videos/shopping.mp3", "Please only transcribe all the speech."],
-                    [f"{cur_dir}/videos/japan.mp4", f"{cur_dir}/videos/japan.mp3", "Describe everything I see, do, and hear from the first-person view."],
+                    [
+                        f"{cur_dir}/videos/cheers.mp4",
+                        f"{cur_dir}/videos/cheers.mp3",
+                        "Describe everything I saw, did, and heard from the first perspective.",
+                    ],
+                    [
+                        f"{cur_dir}/videos/DAY3_A6_SHURE_14550000.mp4",
+                        f"{cur_dir}/videos/DAY3_A6_SHURE_14550000.mp3",
+                        "请按照时间顺序描述我所见所为，并转录所有声音。",
+                    ],
+                    [
+                        f"{cur_dir}/videos/shopping.mp4",
+                        f"{cur_dir}/videos/shopping.mp3",
+                        "Please only transcribe all the speech.",
+                    ],
+                    [
+                        f"{cur_dir}/videos/japan.mp4",
+                        f"{cur_dir}/videos/japan.mp3",
+                        "Describe everything I see, do, and hear from the first-person view.",
+                    ],
                 ],
                 inputs=[video_input, audio_display, text_input],
-                outputs=[output_text]
+                outputs=[output_text],
             )
 
     def handle_video_change(video):
         if video is None:
             return gr.update(visible=False), None
-        
+
         audio = extract_audio_from_video(video)
         # Update audio display visibility based on whether we have audio
         return gr.update(visible=audio is not None), audio
@@ -584,7 +641,10 @@ with gr.Blocks(title="EgoGPT Demo - EgoLife", head=head) as demo:
     video_input.change(
         fn=handle_video_change,
         inputs=[video_input],
-        outputs=[audio_display, audio_display]  # First for visibility, second for audio data
+        outputs=[
+            audio_display,
+            audio_display,
+        ],  # First for visibility, second for audio data
     )
 
     # Add clear handler
@@ -596,14 +656,14 @@ with gr.Blocks(title="EgoGPT Demo - EgoLife", head=head) as demo:
     video_input.clear(
         fn=clear_outputs,
         inputs=[video_input],
-        outputs=[audio_display, output_text, audio_display]
+        outputs=[audio_display, output_text, audio_display],
     )
 
     text_input.submit(
         fn=generate_text,
         inputs=[video_input, audio_display, text_input],
         outputs=[output_text],
-        api_name="generate_streaming"
+        api_name="generate_streaming",
     )
 
     # Add submit button and its event handler
@@ -612,7 +672,7 @@ with gr.Blocks(title="EgoGPT Demo - EgoLife", head=head) as demo:
         fn=generate_text,
         inputs=[video_input, audio_display, text_input],
         outputs=[output_text],
-        api_name="generate_streaming"
+        api_name="generate_streaming",
     )
 
 # Launch the Gradio app

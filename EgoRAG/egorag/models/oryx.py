@@ -44,14 +44,17 @@ from transformers import AutoConfig
 
 # sys.path.append("/mnt/lzy/llava-video")
 
+
 def split_list(lst, n):
     """Split a list into n (roughly) equal-sized chunks"""
     chunk_size = math.ceil(len(lst) / n)  # integer division
     return [lst[i : i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
+
 def get_chunk(lst, n, k):
     chunks = split_list(lst, n)
     return chunks[k]
+
 
 def preprocess_qwen(
     sources,
@@ -137,6 +140,7 @@ def preprocess_qwen(
     input_ids = torch.tensor(input_ids, dtype=torch.long)
     targets = torch.tensor(targets, dtype=torch.long)
     return input_ids
+
 
 class Oryx(BaseQueryModel):
     def __init__(
