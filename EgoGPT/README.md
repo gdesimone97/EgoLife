@@ -30,6 +30,7 @@ conda create -n egogpt python=3.10
 conda activate egogpt
 pip install --upgrade pip
 pip install -e .
+```
 
 3. Install the dependencies for training and inference.
 
