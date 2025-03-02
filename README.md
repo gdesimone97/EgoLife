@@ -24,11 +24,17 @@
 
 
 ## 🚀 News
-🌟 2025-02-28: We release the EgoIT dataset at [HuggingFace](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342). The EgoLife video is also released, and is uploading to [Youtube](https://www.youtube.com/playlist?list=PLlweuFnfdo6F9Fu2Kyhc-kXu3qnaVsYOu). The EgoLife Captioning and EgoLifeQA are in final preparation.
+🤹 2025-02: We provide [HuggingFace gradio demo]() and [self-deployed demo]() for EgoGPT.
 
-🌟 2025-02-28: We release the first version of [EgoGPT](./EgoGPT/) and [EgoRAG](./EgoRAG/).
+🌟 2025-02: The EgoLife video is released at [HuggingFace](https://huggingface.co/datasets/lmms-lab/EgoLife) and uploaded to [Youtube](https://www.youtube.com/playlist?list=PLlweuFnfdo6F9Fu2Kyhc-kXu3qnaVsYOu) as video collection.
 
-🎉 2025-02-27: The paper is accepted by CVPR 2025.
+🌟 2025-02: We release the EgoIT-99K dataset at [HuggingFace](https://huggingface.co/collections/lmms-lab/egolife-67c04574c2a9b64ab312c342). 
+
+🌟 2025-02: We release the first version of [EgoGPT](./EgoGPT/) and [EgoRAG](./EgoRAG/) codebase.
+
+📖 2025-02: Our arXiv submission is currently on hold. For an overview, please visit our [academic page](https://egolife-ai.github.io/blog/).
+
+🎉 2025-02: The paper is accepted to CVPR 2025. Please be invited to our [online EgoHouse](https://egolife-ai.github.io/).
 
 
 ## What is in this repo?
