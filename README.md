@@ -1,6 +1,6 @@
 # The EgoLife Project
 <p align="center">
-  <a href="" target='_blank'>
+  <a href="https://arxiv.org/abs/2503.03803" target='_blank'>
     <img src="https://img.shields.io/badge/Paper-CVPR2025-b31b1b?style=flat-square">
   </a>
   &nbsp;&nbsp;&nbsp;
