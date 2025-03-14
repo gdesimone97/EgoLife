@@ -168,6 +168,5 @@ checkpoints/
 *.pyc
 
 data
-speech_projector
 settings
 *.txt
