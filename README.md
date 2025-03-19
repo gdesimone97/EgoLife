@@ -80,7 +80,7 @@ If you use EgoLife in your research, please cite our work:
 ```
 
 ## 📝 License
-This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the S-Lab license. See the [LICENSE](LICENSE) file for details.
 
 ## Star History
 
