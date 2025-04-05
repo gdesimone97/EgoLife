@@ -22,7 +22,6 @@ class EfficientVit(nn.Module):
             weight_url=weight_url
         )
         self.gap = nn.AdaptiveAvgPool2d(output_size=1)
-        print(self.model)
         self.model.head = nn.Identity()
         self.model = self.model.to(device=device)
     
