@@ -22,10 +22,8 @@ SPEECH_PROJECTOR_PATH=./pretrained/speech_projector_0.5b.bin
 # Replace with downloaded speech encoder path
 SPEECH_ENCODER_PATH=./pretrained/large-v3-turbo.pt
 
-srun -p gpuq -w gnode01 --cpus-per-gpu=32 --ntasks=1 --gres=gpu:1 torchrun --nproc_per_node=1 \
-    --master_port=10043 \
+srun -p gpuq -w gnode01 --cpus-per-gpu=32 --ntasks=1 --gres=gpu:1 accelerate launch --num_machines=1 --multi_gpu --mixed_precision=fp16 \
     egogpt/train/train_audio.py \
-    --deepspeed ./scripts/zero3.json \
     --run_name $run_name \
     --model_name_or_path $MODEL_PATH \
     --version qwen_1_5 \

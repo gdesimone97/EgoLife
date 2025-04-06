@@ -15,9 +15,11 @@
 #    limitations under the License.
 
 import debugpy
-debugpy.listen(("0.0.0.0", 5678))
+try:
+    debugpy.listen(("0.0.0.0", 5678))
+except: 
+    pass
 print("waiting")
-debugpy.wait_for_client()
 
 import ast
 import base64
@@ -1274,6 +1276,7 @@ def train():
             cache_dir=training_args.cache_dir,
             attn_implementation="flash_attention_2",
             torch_dtype=(torch.bfloat16 if training_args.bf16 else None),
+            ignore_mismatched_sizes=True
         )
     else:
         model = EgoGPTLlamaForCausalLM.from_pretrained(
@@ -1388,6 +1391,8 @@ def train():
             ):
                 try:
                     patch_size = data_args.image_processor.size[0]
+                except KeyError:
+                    patch_size = data_args.image_processor.size["width"]
                 except Exception as e:
                     patch_size = data_args.image_processor.size["shortest_edge"]
 

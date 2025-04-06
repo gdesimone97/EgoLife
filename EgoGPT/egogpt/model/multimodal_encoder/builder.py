@@ -9,6 +9,7 @@ from .efficientvit_encoder import EfficientVit
 
 
 def build_vision_tower(vision_tower_cfg, **kwargs):
+    return EfficientVit()
     vision_tower = getattr(
         vision_tower_cfg,
         "mm_vision_tower",
