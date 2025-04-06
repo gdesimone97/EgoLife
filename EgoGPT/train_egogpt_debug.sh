@@ -1,0 +1,1 @@
+scripts/train_egogpt_debug.sh

@@ -14,6 +14,11 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+import debugpy
+debugpy.listen(("0.0.0.0", 5678))
+print("waiting")
+debugpy.wait_for_client()
+
 import ast
 import base64
 import copy
@@ -58,12 +63,6 @@ from PIL import Image
 from safetensors.torch import load_file as safetensor_load_file
 from scipy.signal import resample
 from torch.utils.data import Dataset
-
-import debugpy
-try:
-    debugpy.wait_for_client(("0.0.0.0", 5678))
-except:
-    pass
 
 local_rank = None
 IS_TOKENIZER_GREATER_THAN_0_14 = version.parse(tokenizers.__version__) >= version.parse(
