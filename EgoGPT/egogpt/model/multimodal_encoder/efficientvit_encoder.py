@@ -25,7 +25,7 @@ class EfficientVit(nn.Module):
         image = image.to(self.device)
         emb = self.model(image)["stage_final"]
         emb = self.gap(emb)
-        emb = emb.view(emb.size(0), -1, emb.size(-3))
+        emb = emb.view(-1, emb.size(-3))
         return emb
     
     def load_model(self):
