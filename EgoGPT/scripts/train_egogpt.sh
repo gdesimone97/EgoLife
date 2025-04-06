@@ -1,4 +1,11 @@
-run_name=EgoGPT-7B
+#!/bin/bash
+
+#SBATCH --job-name=EgoGPT
+#SBATCH --partition=aiq
+#SBATCH --cpus-per-gpu=14
+#SBATCH --gres=gpu:8
+
+run_name=EgoGPT-0.5B
 # export WANDB_API_KEY=Your_WANDB_API_KEY
 # wandb login $WANDB_API_KEY
 # export WANDB_PROJECT=EgoGPT
@@ -6,15 +13,16 @@ run_name=EgoGPT-7B
 # wandb online
 
 # Replace with downloaded dataset path
-DATA_PATH=./datasets/EgoLife_Depersonalized_EgoIT.json
+DATA_PATH=./datasets/EgoIT.json
 # Replace with downloaded model path
-MODEL_PATH=lmms-lab/llava-onevision-qwen2-7b-ov
+#MODEL_PATH=lmms-lab/llava-onevision-qwen2-7b-ov
+MODEL_PATH=lmms-lab/llava-onevision-qwen2-0.5b-ov
 # Replace with downloaded speech projector path
-SPEECH_PROJECTOR_PATH=./pretrained/speech_projector_ov.bin
+SPEECH_PROJECTOR_PATH=./pretrained/speech_projector_0.5b.bin
 # Replace with downloaded speech encoder path
-SPEECH_ENCODER_PATH=./pretrained/large-v3.pt
+SPEECH_ENCODER_PATH=./pretrained/large-v3-turbo.pt
 
-torchrun --nproc_per_node=8 \
+srun -p aiq --cpus-per-gpu=14 --ntasks=1 --gres=gpu:8 torchrun --nproc_per_node=8 \
     --master_port=10043 \
     egogpt/train/train_audio.py \
     --deepspeed ./scripts/zero3.json \
@@ -57,4 +65,5 @@ torchrun --nproc_per_node=8 \
     --gradient_checkpointing True \
     --dataloader_num_workers 8 \
     --lazy_preprocess True \
-    --report_to wandb
+    --report_to tensorboard
+    #--vision_tower efficient_vit \
